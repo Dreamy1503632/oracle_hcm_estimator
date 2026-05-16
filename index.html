@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oracle Fusion HCM Efforts Estimator</title>
+    <title>FusionFlow Effort Estimator</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -29,23 +29,72 @@
         }
 
         .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             background: linear-gradient(135deg, #0a4d8c 0%, #1e88e5 100%);
             color: white;
             padding: 30px;
             border-radius: 12px;
             margin-bottom: 30px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            gap: 30px;
+        }
+
+        .header-content {
+            flex: 1;
+            min-width: 0;
         }
 
         .header h1 {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 8px;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
         }
 
         .header p {
             opacity: 0.95;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .header-logo {
+            flex-shrink: 0;
+            width: 140px;
+            height: auto;
+            max-height: 120px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+        }
+
+        .header-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 18px;
+            gap: 15px;
+        }
+
+        .header-controls select {
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            padding: 10px 12px;
             font-size: 14px;
+            background: white;
+        }
+
+        .header-controls-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #f5f7fa;
+        }
+
+        .header-controls-item strong {
+            color: white;
         }
 
         .nav-tabs {
@@ -675,6 +724,17 @@
         const COMPLEXITY_LEVELS = ['simple', 'medium', 'complex', 'very-complex'];
         const STATUSES = ['Draft', 'In Review', 'Approved', 'Completed'];
 
+        const USERS = [
+            { id: 'architect_absence', name: 'Architect - Absence', role: 'Architect', projects: ['Absence Management'] },
+            { id: 'architect_otl', name: 'Architect - OTL', role: 'Architect', projects: ['Time and Labor (OTL)'] },
+            { id: 'line_manager', name: 'Line Manager', role: 'Line Manager', projects: ['Absence Management', 'Time and Labor (OTL)', 'Core HR'] }
+        ];
+
+        // Default users including Super Admin
+        const DEFAULT_USERS = [
+            { id: 'admin', name: 'Super Admin', role: 'Super Admin', projects: ['Absence Management', 'Time and Labor (OTL)', 'Core HR', 'Payroll', 'Performance', 'Compensation', 'Learning', 'Recruiting'] }
+        ];
+
         // Templates - Oracle Fusion HCM Seeded Configurations
         const TEMPLATES = [
             {
@@ -938,16 +998,16 @@
                 devEffort += obj.customEffort || baseEffort;
             });
 
-            const unitTesting = overrides.unitTesting || Math.round(devEffort * 0.35);
-            const sit = overrides.sit || Math.round(devEffort * 0.45);
-            const uat = overrides.uat || Math.round(devEffort * 0.30);
-            const requirements = overrides.requirements || Math.round(devEffort * 0.15);
-            const documentation = overrides.documentation || Math.round(devEffort * 0.12);
-            const migration = overrides.migration || (objects.length * 8);
-            const hypercare = overrides.hypercare || 80;
+            const unitTesting = overrides.unitTesting ?? Math.round(devEffort * 0.35);
+            const sit = overrides.sit ?? Math.round(devEffort * 0.45);
+            const uat = overrides.uat ?? Math.round(devEffort * 0.30);
+            const requirements = overrides.requirements ?? Math.round(devEffort * 0.15);
+            const documentation = overrides.documentation ?? Math.round(devEffort * 0.12);
+            const migration = overrides.migration ?? (objects.length * 8);
+            const hypercare = overrides.hypercare ?? 80;
             
             const subtotal = devEffort + unitTesting + sit + uat + requirements + documentation + migration + hypercare;
-            const contingency = overrides.contingency || Math.round(subtotal * 0.10);
+            const contingency = overrides.contingency ?? Math.round(subtotal * 0.10);
             const total = subtotal + contingency;
 
             return {
@@ -970,10 +1030,37 @@
             const [selectedCR, setSelectedCR] = useState(null);
             const [showModal, setShowModal] = useState(false);
             const [modalType, setModalType] = useState('');
+            const [users, setUsers] = useState(() => Storage.load('users', DEFAULT_USERS));
+            const [currentUser, setCurrentUser] = useState(() => {
+                const storedUser = Storage.load('currentUser');
+                const allUsers = Storage.load('users', DEFAULT_USERS);
+                return storedUser && Array.isArray(storedUser.projects) ? storedUser : allUsers[0];
+            });
+
+            const visibleCRs = crs.filter(cr => {
+                // Super Admin can see all CRs
+                if (currentUser?.role === 'Super Admin') return true;
+                // Other users can see all CRs (grouping by clientName)
+                return true;
+            });
 
             useEffect(() => {
                 Storage.save('crs', crs);
             }, [crs]);
+
+            useEffect(() => {
+                Storage.save('currentUser', currentUser);
+            }, [currentUser]);
+
+            useEffect(() => {
+                Storage.save('users', users);
+            }, [users]);
+            useEffect(() => {
+                if (selectedCR && !visibleCRs.some(cr => cr.id === selectedCR.id)) {
+                    setSelectedCR(null);
+                    setActiveTab('crs');
+                }
+            }, [visibleCRs, selectedCR]);
 
             const createCR = (crData) => {
                 // Initialize template objects with required fields if they exist
@@ -1035,8 +1122,11 @@
             return (
                 <div className="app-container">
                     <div className="header">
-                        <h1>🧠 SMart Effort Estimator</h1>
-                        <p>Intelligent effort estimation for Oracle Fusion HCM implementations - Powered by smart configuration analysis and historical complexity data</p>
+                        <div className="header-content">
+                            <h1>FusionFlow Effort Estimator</h1>
+                            <p>Intelligent effort estimation for Oracle Fusion HCM implementations - Powered by smart configuration analysis and historical complexity data</p>
+                        </div>
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 420 160'%3E%3Crect width='420' height='160' fill='white' rx='10'/%3E%3Ctext x='15' y='110' font-family='Arial, sans-serif' font-size='80' font-weight='bold' fill='%23003DA5'%3EMastek%3C/text%3E%3Ccircle cx='340' cy='50' r='22' fill='%2300A3A8'/%3E%3Crect x='315' y='78' width='30' height='30' fill='%23003DA5'/%3E%3Crect x='348' y='83' width='24' height='24' fill='%23CCCCCC'/%3E%3C/svg%3E" alt="Mastek Logo" className="header-logo" />
                     </div>
 
                     <div className="nav-tabs">
@@ -1084,7 +1174,7 @@
 
                     {activeTab === 'crs' && (
                         <CRList 
-                            crs={crs} 
+                            crs={visibleCRs} 
                             onSelect={(cr) => {
                                 setSelectedCR(cr);
                                 setActiveTab('edit');
@@ -1110,11 +1200,11 @@
                     )}
 
                     {activeTab === 'analytics' && (
-                        <Analytics crs={crs} />
+                        <Analytics crs={visibleCRs} />
                     )}
 
                     {activeTab === 'projects' && (
-                        <ProjectSummary crs={crs} />
+                        <ProjectSummary crs={visibleCRs} />
                     )}
 
                     {activeTab === 'templates' && (
@@ -1129,6 +1219,7 @@
                         <CreateCRModal 
                             onClose={closeModal}
                             onCreate={createCR}
+                            currentUser={currentUser}
                         />
                     )}
                 </div>
@@ -1249,7 +1340,9 @@
             };
 
             const updateOverride = (field, value) => {
-                const newOverrides = { ...overrides, [field]: parseInt(value) || 0 };
+                const parsedValue = parseInt(value, 10);
+            const newValue = Number.isNaN(parsedValue) ? null : parsedValue;
+            const newOverrides = { ...overrides, [field]: newValue };
                 setOverrides(newOverrides);
                 onUpdate({ overrides: newOverrides });
             };
@@ -1491,8 +1584,8 @@
         }
 
         function EffortOverride({ label, suggested, value, onChange }) {
-            const isOverridden = value && value !== suggested;
-            const displayValue = value || suggested;
+            const isOverridden = value !== undefined && value !== null && value !== suggested;
+            const displayValue = value !== undefined && value !== null ? value : suggested;
 
             return (
                 <div className="effort-item">
@@ -1695,7 +1788,7 @@
   <col style="width:160px"/>
   <col style="width:540px"/>
 
-  <tr><td class="cover-banner" colspan="2">🧠 SMart Effort Estimator</td></tr>
+  <tr><td class="cover-banner" colspan="2">🧠 HCM EffortIQ</td></tr>
   <tr><td class="cover-sub"    colspan="2">Oracle Fusion HCM Implementation — Effort Estimation Report</td></tr>
   <tr><td class="spacer"       colspan="2"></td></tr>
 
@@ -2728,7 +2821,7 @@
             );
         }
 
-        function CreateCRModal({ onClose, onCreate }) {
+        function CreateCRModal({ onClose, onCreate, currentUser }) {
             const [formData, setFormData] = useState({
                 crNumber: `${Date.now().toString().slice(-6)}`,
                 title: '',
@@ -2741,10 +2834,9 @@
 
             const handleSubmit = (e) => {
                 e.preventDefault();
-                if (formData.title && formData.clientName) {
+                if (formData.title && formData.clientName && formData.projectName) {
                     let objects = [];
                     if (selectedTemplate) {
-                        // Create multiple instances of template objects
                         for (let i = 0; i < templateInstances; i++) {
                             selectedTemplate.objects.forEach(obj => {
                                 objects.push({
@@ -2756,10 +2848,10 @@
                             });
                         }
                     }
-                    
+
                     const crData = {
                         ...formData,
-                        objects: objects,
+                        objects,
                         templateApplied: selectedTemplate ? selectedTemplate.name : null,
                         templateInstances: selectedTemplate ? templateInstances : 1
                     };
@@ -2772,73 +2864,67 @@
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
                         <div className="modal-header">Create New Change Request</div>
-                        
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
                                 <label className="form-label">CR Number</label>
-                                <input 
+                                <input
                                     type="text"
                                     className="form-input"
                                     value={formData.crNumber}
-                                    onChange={(e) => setFormData({...formData, crNumber: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, crNumber: e.target.value })}
                                     required
                                 />
                             </div>
-
                             <div className="form-group">
                                 <label className="form-label">CR Title *</label>
-                                <input 
+                                <input
                                     type="text"
                                     className="form-input"
                                     value={formData.title}
-                                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                     placeholder="e.g., Time Entry Setup for Admin Group"
                                     required
                                 />
                             </div>
-
                             <div className="form-group">
                                 <label className="form-label">Client/Project Name *</label>
-                                <input 
+                                <input
                                     type="text"
                                     className="form-input"
                                     value={formData.clientName}
-                                    onChange={(e) => setFormData({...formData, clientName: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                                     placeholder="e.g., Acme Corporation"
                                     required
                                 />
                             </div>
-
                             <div className="form-group">
                                 <label className="form-label">Project Name *</label>
-                                <input 
+                                <input
                                     type="text"
                                     className="form-input"
                                     value={formData.projectName}
-                                    onChange={(e) => setFormData({...formData, projectName: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
                                     placeholder="e.g., HCM Implementation Phase 1"
                                     required
                                 />
                             </div>
-
                             <div className="form-group">
                                 <label className="form-label">Description (Optional)</label>
-                                <textarea 
+                                <textarea
                                     className="form-textarea"
                                     value={formData.description}
-                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="Brief description of the change request..."
                                 />
                             </div>
-
                             <div className="form-group">
                                 <label className="form-label" style={{ marginBottom: 15 }}>Apply Seeded Configuration Template (Optional)</label>
-                                <select 
+                                <select
                                     className="form-select"
                                     value={selectedTemplate ? TEMPLATES.indexOf(selectedTemplate) : ''}
                                     onChange={(e) => {
                                         const idx = e.target.value;
-                                        setSelectedTemplate(idx ? TEMPLATES[parseInt(idx)] : null);
+                                        setSelectedTemplate(idx !== '' ? TEMPLATES[parseInt(idx, 10)] : null);
                                     }}
                                 >
                                     <option value="">-- None (Start with empty CR) --</option>
@@ -2862,15 +2948,14 @@
                                     </div>
                                 )}
                             </div>
-
                             {selectedTemplate && (
                                 <div className="form-group">
                                     <label className="form-label">Number of Template Instances</label>
-                                    <input 
+                                    <input
                                         type="number"
                                         className="form-input"
                                         value={templateInstances}
-                                        onChange={(e) => setTemplateInstances(Math.max(1, parseInt(e.target.value) || 1))}
+                                        onChange={(e) => setTemplateInstances(Math.max(1, parseInt(e.target.value, 10) || 1))}
                                         min="1"
                                         placeholder="How many instances of this template do you need?"
                                     />
@@ -2879,7 +2964,7 @@
                                         fontSize: 12,
                                         color: '#7f8c8d'
                                     }}>
-                                        Total objects: {selectedTemplate.objects.length * templateInstances} • 
+                                        Total objects: {selectedTemplate.objects.length * templateInstances} •
                                         Estimated effort: ~{(() => {
                                             let total = 0;
                                             selectedTemplate.objects.forEach(obj => {
@@ -2890,7 +2975,6 @@
                                     </div>
                                 </div>
                             )}
-
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-secondary" onClick={onClose}>
                                     Cancel
@@ -2905,7 +2989,21 @@
             );
         }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        try {
+            ReactDOM.render(<App />, document.getElementById('root'));
+        } catch (error) {
+            console.error('App render error:', error);
+            const root = document.getElementById('root');
+            if (root) {
+                root.innerHTML = `
+                    <div style="padding:40px;font-family:Arial, sans-serif;color:#c62828;">
+                        <h2>Application failed to load</h2>
+                        <p>${error.message}</p>
+                        <pre style="white-space:pre-wrap;word-break:break-word;">${error.stack}</pre>
+                    </div>
+                `;
+            }
+        }
     </script>
 </body>
 </html>
