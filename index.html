@@ -1,0 +1,2911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oracle Fusion HCM Efforts Estimator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0a4d8c 0%, #1e88e5 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.95;
+            font-size: 14px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #546e7a;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab:hover {
+            background: #e3f2fd;
+            color: #1e88e5;
+        }
+
+        .nav-tab.active {
+            background: #1e88e5;
+            color: white;
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .cr-list {
+            display: grid;
+            gap: 20px;
+        }
+
+        .cr-item {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cr-item:hover {
+            border-color: #1e88e5;
+            box-shadow: 0 4px 12px rgba(30, 136, 229, 0.15);
+        }
+
+        .cr-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .cr-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .cr-number {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-draft { background: #fff3e0; color: #f57c00; }
+        .status-in-review { background: #e3f2fd; color: #1976d2; }
+        .status-approved { background: #e8f5e9; color: #388e3c; }
+        .status-completed { background: #f3e5f5; color: #7b1fa2; }
+
+        .cr-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .cr-efforts {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ecf0f1;
+        }
+
+        .effort-total {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e88e5;
+        }
+
+        .effort-label {
+            font-size: 12px;
+            color: #95a5a6;
+            text-transform: uppercase;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #1e88e5;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1976d2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30, 136, 229, 0.3);
+        }
+
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #546e7a;
+        }
+
+        .btn-secondary:hover {
+            background: #cfd8dc;
+        }
+
+        .btn-danger {
+            background: #e53935;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c62828;
+        }
+
+        .btn-success {
+            background: #43a047;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #388e3c;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #1e88e5;
+            box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.1);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .object-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .editor-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .object-list-panel {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-height: 400px;
+        }
+
+        .object-list-panel .panel-header {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .object-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            max-height: 520px;
+        }
+
+        .object-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .object-list-item:hover,
+        .object-list-item.active {
+            background: #e3f2fd;
+            border-color: #90caf9;
+        }
+
+        .object-list-item-title {
+            font-weight: 600;
+            color: #1e88e5;
+            font-size: 14px;
+        }
+
+        .object-list-item-meta {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .object-editor-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .object-card-full {
+            padding: 24px;
+        }
+
+        .full-width {
+            width: 100%;
+        }
+
+        .object-list-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 980px) {
+            .editor-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .object-list-panel {
+                max-height: none;
+            }
+        }
+
+        .object-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .object-type-badge {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #1e88e5;
+            color: white;
+        }
+
+        .complexity-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .complexity-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .complexity-btn:hover {
+            border-color: #1e88e5;
+        }
+
+        .complexity-btn.active {
+            border-color: transparent;
+            color: white;
+        }
+
+        .complexity-simple.active { background: #66bb6a; }
+        .complexity-medium.active { background: #ffa726; }
+        .complexity-complex.active { background: #ef5350; }
+        .complexity-very-complex.active { background: #ab47bc; }
+
+        .effort-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .effort-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .effort-item-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+
+        .effort-item-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .summary-card.primary {
+            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+        }
+
+        .summary-card.success {
+            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+        }
+
+        .summary-card.warning {
+            background: linear-gradient(135deg, #ffa726 0%, #f57c00 100%);
+        }
+
+        .summary-card.danger {
+            background: linear-gradient(135deg, #ef5350 0%, #c62828 100%);
+        }
+
+        .summary-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .summary-value {
+            font-size: 36px;
+            font-weight: 700;
+        }
+
+        .summary-unit {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 13px;
+            color: #546e7a;
+        }
+
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #95a5a6;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state-text {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #1e88e5 0%, #42a5f5 100%);
+            transition: width 0.3s ease;
+        }
+
+        .chart-container {
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            color: #546e7a;
+            transition: all 0.3s ease;
+        }
+
+        .icon-btn:hover {
+            background: #f5f5f5;
+            color: #1e88e5;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-override {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .content-card {
+                padding: 20px;
+            }
+
+            .nav-tabs {
+                overflow-x: auto;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .effort-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Storage utility
+        const Storage = {
+            save: (key, data) => {
+                try {
+                    localStorage.setItem(key, JSON.stringify(data));
+                } catch (e) {
+                    console.error('Storage error:', e);
+                }
+            },
+            load: (key, defaultValue = null) => {
+                try {
+                    const data = localStorage.getItem(key);
+                    return data ? JSON.parse(data) : defaultValue;
+                } catch (e) {
+                    console.error('Storage error:', e);
+                    return defaultValue;
+                }
+            }
+        };
+
+        // Base effort matrix
+        const EFFORT_MATRIX = {
+            'Configuration': { simple: 8, medium: 16, complex: 40, 'very-complex': 80 },
+            'Data Migration': { simple: 16, medium: 40, complex: 80, 'very-complex': 120 },
+            'Fast Formula': { simple: 8, medium: 24, complex: 48, 'very-complex': 96 },
+            'HCM Extract': { simple: 16, medium: 32, complex: 64, 'very-complex': 100 },
+            'BI Reports': { simple: 8, medium: 16, complex: 32, 'very-complex': 64 },
+            'OIC': { simple: 16, medium: 40, complex: 80, 'very-complex': 120 },
+            'Security': { simple: 4, medium: 8, complex: 16, 'very-complex': 32 },
+            'Workflow': { simple: 8, medium: 24, complex: 48, 'very-complex': 80 },
+            'Integration': { simple: 16, medium: 40, complex: 80, 'very-complex': 120 }
+        };
+
+        const OBJECT_TYPES = Object.keys(EFFORT_MATRIX);
+        const COMPLEXITY_LEVELS = ['simple', 'medium', 'complex', 'very-complex'];
+        const STATUSES = ['Draft', 'In Review', 'Approved', 'Completed'];
+
+        // Templates - Oracle Fusion HCM Seeded Configurations
+        const TEMPLATES = [
+            {
+                name: '0. Global HCM Foundation (Mandatory for All Modules)',
+                objects: [
+                    { type: 'Configuration', name: 'HCM Offering Enablement', complexity: 'simple' },
+                    { type: 'Configuration', name: 'Implementation Project & Task Lists', complexity: 'simple' }
+                ]
+            },
+            {
+                name: '1. Enterprise & Workforce Foundation',
+                objects: [
+                    { type: 'Configuration', name: 'Enterprise', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Legal Entities', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Business Units', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Legislative Data Groups', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Payroll Statutory Units', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Locations', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Departments', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Jobs', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Positions', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Grades & Grade Ladders', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '2. Core HR (Global Human Resources)',
+                objects: [
+                    { type: 'Configuration', name: 'Person Types', complexity: 'simple' },
+                    { type: 'Configuration', name: 'Employment Categories', complexity: 'simple' },
+                    { type: 'Configuration', name: 'Action Types & Reasons', complexity: 'simple' },
+                    { type: 'Configuration', name: 'Worker Numbering', complexity: 'simple' },
+                    { type: 'Configuration', name: 'National Identifiers', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Hire Workflow', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Transfer Workflow', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Promotion Workflow', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Termination Workflow', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Document Records', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Document Types', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '3. Security & Data Control',
+                objects: [
+                    { type: 'Configuration', name: 'Seeded Roles Copy', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Job Roles', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Abstract Roles', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Data Roles', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Security Profiles', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Transaction Design Studio', complexity: 'medium' },
+                    { type: 'Workflow', name: 'BPM Approval Rules', complexity: 'complex' }
+                ]
+            },
+            {
+                name: '4. Absence Management',
+                objects: [
+                    { type: 'Configuration', name: 'Absence Types', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Absence Categories', complexity: 'simple' },
+                    { type: 'Configuration', name: 'Absence Reasons', complexity: 'simple' },
+                    { type: 'Configuration', name: 'Absence Plans', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Accrual Plans', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Eligibility Profiles', complexity: 'medium' },
+                    { type: 'Fast Formula', name: 'Accrual Formula', complexity: 'complex' },
+                    { type: 'Fast Formula', name: 'Validation Formula', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Absence Approval', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Absence Balance Report', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '5. Time and Labor (OTL)',
+                objects: [
+                    { type: 'Configuration', name: 'Time Categories', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Time Card Layouts', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Time Entry Profiles', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Work Schedules', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Shift Patterns', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Day Patterns', complexity: 'medium' },
+                    { type: 'Fast Formula', name: 'Time Calculation Formula', complexity: 'complex' },
+                    { type: 'Workflow', name: 'Time Approval Workflow', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '6. Payroll - Core Statutory Setup',
+                objects: [
+                    { type: 'Configuration', name: 'Legislative Data Groups (LDG)', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Payroll Statutory Units (PSU)', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Legal Jurisdictions & Authorities', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Statutory Deductions', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Tax Reporting Units (TRU)', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '6. Payroll - Definitions & Calendars',
+                objects: [
+                    { type: 'Configuration', name: 'Payroll Definitions', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Payroll Calendars', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Payroll Periods', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Consolidation Sets', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '6. Payroll - Elements & Processing Rules',
+                objects: [
+                    { type: 'Configuration', name: 'Element Classifications', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Payroll Elements', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Input Values', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Element Eligibility', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Element Links', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '6. Payroll - Formulas & Balances',
+                objects: [
+                    { type: 'Fast Formula', name: 'Payroll Calculation Formula', complexity: 'complex' },
+                    { type: 'Fast Formula', name: 'Proration Formula', complexity: 'medium' },
+                    { type: 'Fast Formula', name: 'Validation Formula', complexity: 'medium' },
+                    { type: 'Fast Formula', name: 'Defaulting Formula', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Balance Definitions', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Balance Dimensions', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Balance Feeds', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Balance Exceptions', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '6. Payroll - Processing & Costing',
+                objects: [
+                    { type: 'Configuration', name: 'Payroll Flow Patterns', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Calculate Payroll Process', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Archive Periodic Payroll Results', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Transfer to Subledger Accounting', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Costing of Payroll', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Costing Accounts', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Costing Overrides', complexity: 'medium' },
+                    { type: 'Integration', name: 'GL Cost Transfer', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '6. Payroll - Payments & Disbursement',
+                objects: [
+                    { type: 'Configuration', name: 'Payment Methods', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Organization Payment Methods', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Personal Payment Methods', complexity: 'simple' },
+                    { type: 'Configuration', name: 'Generate EFT / Bank Files', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '6. Payroll - Security & Reporting',
+                objects: [
+                    { type: 'Configuration', name: 'Payroll Access Rules', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Payroll Process Security Profiles', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Payroll Event Notifications', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Payroll Register', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Payslip', complexity: 'simple' },
+                    { type: 'BI Reports', name: 'Payroll Balance Report', complexity: 'complex' },
+                    { type: 'BI Reports', name: 'Statutory Reports', complexity: 'complex' },
+                    { type: 'BI Reports', name: 'Costing Report', complexity: 'medium' },
+                    { type: 'HCM Extract', name: 'HCM Extracts (Payroll Interface)', complexity: 'complex' },
+                    { type: 'HCM Extract', name: 'Bank File Interface', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '7. Compensation Management',
+                objects: [
+                    { type: 'Configuration', name: 'Compensation Plans', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Compensation Cycles', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Rate Tables', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Workforce Compensation Rules', complexity: 'complex' },
+                    { type: 'Fast Formula', name: 'Compensation Defaulting', complexity: 'complex' },
+                    { type: 'Workflow', name: 'Compensation Approval', complexity: 'complex' }
+                ]
+            },
+            {
+                name: '8. Performance Management',
+                objects: [
+                    { type: 'Configuration', name: 'Performance Templates', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Review Periods', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Content Sections', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Rating Models', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Section Weights', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Performance Review Approval', complexity: 'complex' },
+                    { type: 'BI Reports', name: 'Performance Dashboard', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '9. Goals Management',
+                objects: [
+                    { type: 'Configuration', name: 'Goal Plans', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Goal Libraries', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Goal Approval', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Goal Alignment Reports', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '10. Profile Management & Talent Profiles',
+                objects: [
+                    { type: 'Configuration', name: 'Profile Types', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Profile Content Sections', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Competency Models', complexity: 'complex' },
+                    { type: 'Configuration', name: 'Skill Models', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Rating Scales', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '11. Learning (OLC)',
+                objects: [
+                    { type: 'Configuration', name: 'Learning Catalog', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Course Offerings', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Class Schedules', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Learning Approval', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Learning Progress Report', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '12. Recruiting (ORC)',
+                objects: [
+                    { type: 'Configuration', name: 'Requisitions', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Job Application Flows', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Candidate Selection Process', complexity: 'medium' },
+                    { type: 'Workflow', name: 'Offer Approval', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Recruitment Funnel', complexity: 'medium' }
+                ]
+            },
+            {
+                name: '13. Workforce Modeling & Succession',
+                objects: [
+                    { type: 'Configuration', name: 'Talent Pools', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Succession Plans', complexity: 'medium' },
+                    { type: 'Configuration', name: 'Risk of Loss', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Succession Matrix', complexity: 'complex' }
+                ]
+            },
+            {
+                name: '14. Integrations & Data Movement',
+                objects: [
+                    { type: 'Integration', name: 'HDL / FBDI', complexity: 'medium' },
+                    { type: 'HCM Extract', name: 'HCM Extracts', complexity: 'complex' },
+                    { type: 'Integration', name: 'Finance Systems', complexity: 'medium' },
+                    { type: 'Integration', name: 'External Payroll Integration', complexity: 'complex' },
+                    { type: 'OIC', name: 'OIC Integration Flows', complexity: 'complex' }
+                ]
+            },
+            {
+                name: '15. Reporting & Analytics (OTBI / BIP)',
+                objects: [
+                    { type: 'BI Reports', name: 'Seeded OTBI Subject Areas', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Workforce Dashboards', complexity: 'medium' },
+                    { type: 'BI Reports', name: 'Payroll & Statutory Reports', complexity: 'complex' }
+                ]
+            },
+          
+        ];
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function calculateEfforts(objects, overrides = {}) {
+            let devEffort = 0;
+            
+            objects.forEach(obj => {
+                const baseEffort = EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+                devEffort += obj.customEffort || baseEffort;
+            });
+
+            const unitTesting = overrides.unitTesting || Math.round(devEffort * 0.35);
+            const sit = overrides.sit || Math.round(devEffort * 0.45);
+            const uat = overrides.uat || Math.round(devEffort * 0.30);
+            const requirements = overrides.requirements || Math.round(devEffort * 0.15);
+            const documentation = overrides.documentation || Math.round(devEffort * 0.12);
+            const migration = overrides.migration || (objects.length * 8);
+            const hypercare = overrides.hypercare || 80;
+            
+            const subtotal = devEffort + unitTesting + sit + uat + requirements + documentation + migration + hypercare;
+            const contingency = overrides.contingency || Math.round(subtotal * 0.10);
+            const total = subtotal + contingency;
+
+            return {
+                development: devEffort,
+                unitTesting,
+                sit,
+                uat,
+                requirements,
+                documentation,
+                migration,
+                hypercare,
+                contingency,
+                total
+            };
+        }
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('crs');
+            const [crs, setCrs] = useState(() => Storage.load('crs', []));
+            const [selectedCR, setSelectedCR] = useState(null);
+            const [showModal, setShowModal] = useState(false);
+            const [modalType, setModalType] = useState('');
+
+            useEffect(() => {
+                Storage.save('crs', crs);
+            }, [crs]);
+
+            const createCR = (crData) => {
+                // Initialize template objects with required fields if they exist
+                const objects = crData.objects && crData.objects.length > 0 
+                    ? crData.objects.map(obj => ({
+                        ...obj,
+                        id: generateId(),
+                        customEffort: null
+                      }))
+                    : [];
+                
+                const newCR = {
+                    id: generateId(),
+                    crNumber: crData.crNumber,
+                    title: crData.title,
+                    clientName: crData.clientName,
+                    projectName: crData.projectName,
+                    description: crData.description || '',
+                    createdDate: new Date().toISOString(),
+                    status: 'Draft',
+                    objects: objects,
+                    overrides: {},
+                    notes: '',
+                    templateApplied: crData.templateApplied || null,
+                    templateInstances: crData.templateInstances || 1
+                };
+                setCrs([...crs, newCR]);
+                setSelectedCR(newCR);
+                setActiveTab('edit');
+            };
+
+            const updateCR = (id, updates) => {
+                setCrs(crs.map(cr => cr.id === id ? { ...cr, ...updates } : cr));
+                if (selectedCR?.id === id) {
+                    setSelectedCR({ ...selectedCR, ...updates });
+                }
+            };
+
+            const deleteCR = (id) => {
+                if (confirm('Are you sure you want to delete this CR?')) {
+                    setCrs(crs.filter(cr => cr.id !== id));
+                    if (selectedCR?.id === id) {
+                        setSelectedCR(null);
+                        setActiveTab('crs');
+                    }
+                }
+            };
+
+            const openModal = (type) => {
+                setModalType(type);
+                setShowModal(true);
+            };
+
+            const closeModal = () => {
+                setShowModal(false);
+                setModalType('');
+            };
+
+            return (
+                <div className="app-container">
+                    <div className="header">
+                        <h1>🧠 SMart Effort Estimator</h1>
+                        <p>Intelligent effort estimation for Oracle Fusion HCM implementations - Powered by smart configuration analysis and historical complexity data</p>
+                    </div>
+
+                    <div className="nav-tabs">
+                        <button 
+                            className={`nav-tab ${activeTab === 'crs' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('crs')}
+                        >
+                            📋 Change Requests
+                        </button>
+                        {selectedCR && (
+                            <button 
+                                className={`nav-tab ${activeTab === 'edit' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('edit')}
+                            >
+                                ✏️ Edit CR
+                            </button>
+                        )}
+                        {selectedCR && (
+                            <button 
+                                className={`nav-tab ${activeTab === 'summary' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('summary')}
+                            >
+                                📊 Summary
+                            </button>
+                        )}
+                        <button 
+                            className={`nav-tab ${activeTab === 'projects' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('projects')}
+                        >
+                            🏗️ Projects
+                        </button>
+                        <button 
+                            className={`nav-tab ${activeTab === 'analytics' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('analytics')}
+                        >
+                            📈 Analytics
+                        </button>
+                        <button 
+                            className={`nav-tab ${activeTab === 'templates' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('templates')}
+                        >
+                            📑 Templates
+                        </button>
+                    </div>
+
+                    {activeTab === 'crs' && (
+                        <CRList 
+                            crs={crs} 
+                            onSelect={(cr) => {
+                                setSelectedCR(cr);
+                                setActiveTab('edit');
+                            }}
+                            onDelete={deleteCR}
+                            onCreate={() => openModal('create')}
+                        />
+                    )}
+
+                    {activeTab === 'edit' && selectedCR && (
+                        <CREditor 
+                            cr={selectedCR}
+                            onUpdate={(updates) => updateCR(selectedCR.id, updates)}
+                            onViewSummary={() => setActiveTab('summary')}
+                        />
+                    )}
+
+                    {activeTab === 'summary' && selectedCR && (
+                        <CRSummary 
+                            cr={selectedCR}
+                            onExport={(format) => exportCR(selectedCR, format)}
+                        />
+                    )}
+
+                    {activeTab === 'analytics' && (
+                        <Analytics crs={crs} />
+                    )}
+
+                    {activeTab === 'projects' && (
+                        <ProjectSummary crs={crs} />
+                    )}
+
+                    {activeTab === 'templates' && (
+                        <Templates 
+                            onApplyTemplate={(template) => {
+                                openModal('create-from-template');
+                            }}
+                        />
+                    )}
+
+                    {showModal && modalType === 'create' && (
+                        <CreateCRModal 
+                            onClose={closeModal}
+                            onCreate={createCR}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        function CRList({ crs, onSelect, onDelete, onCreate }) {
+            if (crs.length === 0) {
+                return (
+                    <div className="content-card">
+                        <div className="empty-state">
+                            <div className="empty-state-icon">📋</div>
+                            <div className="empty-state-text">No Change Requests yet</div>
+                            <button className="btn btn-primary" onClick={onCreate}>
+                                ➕ Create Your First CR
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="content-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+                        <h2>Change Requests ({crs.length})</h2>
+                        <button className="btn btn-primary" onClick={onCreate}>
+                            ➕ New CR
+                        </button>
+                    </div>
+
+                    <div className="cr-list">
+                        {crs.map(cr => {
+                            const efforts = calculateEfforts(cr.objects || [], cr.overrides || {});
+                            return (
+                                <div key={cr.id} className="cr-item" onClick={() => onSelect(cr)}>
+                                    <div className="cr-header">
+                                        <div>
+                                            <div className="cr-title">{cr.title}</div>
+                                            <div className="cr-number">CR-{cr.crNumber}</div>
+                                        </div>
+                                        <span className={`status-badge status-${cr.status.toLowerCase().replace(' ', '-')}`}>
+                                            {cr.status}
+                                        </span>
+                                    </div>
+                                    <div className="cr-meta">
+                                        <span>🏗️ {cr.projectName}</span>
+                                        <span>👤 {cr.clientName}</span>
+                                        <span>📅 {new Date(cr.createdDate).toLocaleDateString()}</span>
+                                        <span>📦 {cr.objects?.length || 0} objects</span>
+                                    </div>
+                                    <div className="cr-efforts">
+                                        <div>
+                                            <div className="effort-label">Total Effort</div>
+                                            <div className="effort-total">{efforts.total} hrs</div>
+                                        </div>
+                                        <button 
+                                            className="btn btn-danger"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(cr.id);
+                                            }}
+                                        >
+                                            🗑️ Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        function CREditor({ cr, onUpdate, onViewSummary }) {
+            const [objects, setObjects] = useState(cr.objects || []);
+            const [overrides, setOverrides] = useState(cr.overrides || {});
+            const [selectedObjectId, setSelectedObjectId] = useState(objects[0]?.id || null);
+
+            useEffect(() => {
+                if (objects.length === 0) {
+                    setSelectedObjectId(null);
+                    return;
+                }
+                if (!selectedObjectId || !objects.some(obj => obj.id === selectedObjectId)) {
+                    setSelectedObjectId(objects[0].id);
+                }
+            }, [objects, selectedObjectId]);
+
+            const addObject = () => {
+                const newObject = {
+                    id: generateId(),
+                    type: 'Configuration',
+                    name: '',
+                    complexity: 'medium',
+                    customEffort: null
+                };
+                const newObjects = [...objects, newObject];
+                setObjects(newObjects);
+                onUpdate({ objects: newObjects });
+                setSelectedObjectId(newObject.id);
+            };
+
+            const updateObject = (id, updates) => {
+                const newObjects = objects.map(obj => 
+                    obj.id === id ? { ...obj, ...updates } : obj
+                );
+                setObjects(newObjects);
+                onUpdate({ objects: newObjects });
+            };
+
+            const removeObject = (id) => {
+                const newObjects = objects.filter(obj => obj.id !== id);
+                setObjects(newObjects);
+                onUpdate({ objects: newObjects });
+                if (selectedObjectId === id) {
+                    setSelectedObjectId(newObjects[0]?.id || null);
+                }
+            };
+
+            const updateOverride = (field, value) => {
+                const newOverrides = { ...overrides, [field]: parseInt(value) || 0 };
+                setOverrides(newOverrides);
+                onUpdate({ overrides: newOverrides });
+            };
+
+            const efforts = calculateEfforts(objects, overrides);
+            const selectedObject = objects.find(obj => obj.id === selectedObjectId) || objects[0] || null;
+
+            return (
+                <div className="content-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+                        <div>
+                            <h2>{cr.title}</h2>
+                            <p style={{ color: '#7f8c8d', marginTop: 5 }}>CR-{cr.crNumber} • {cr.clientName}</p>
+                        </div>
+                        <div className="action-buttons">
+                            <select 
+                                className="form-select" 
+                                value={cr.status}
+                                onChange={(e) => onUpdate({ status: e.target.value })}
+                                style={{ width: 'auto' }}
+                            >
+                                {STATUSES.map(status => (
+                                    <option key={status} value={status}>{status}</option>
+                                ))}
+                            </select>
+                            <button className="btn btn-success" onClick={onViewSummary}>
+                                📊 View Summary
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="summary-grid" style={{ marginBottom: 30 }}>
+                        <div className="summary-card primary">
+                            <div className="summary-label">Development</div>
+                            <div className="summary-value">{efforts.development} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card success">
+                            <div className="summary-label">Testing</div>
+                            <div className="summary-value">{efforts.unitTesting + efforts.sit + efforts.uat} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card warning">
+                            <div className="summary-label">Other</div>
+                            <div className="summary-value">{efforts.requirements + efforts.documentation + efforts.migration} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card danger">
+                            <div className="summary-label">Total Effort</div>
+                            <div className="summary-value">{efforts.total} <span className="summary-unit">hrs</span></div>
+                        </div>
+                    </div>
+
+                    <div className="editor-layout">
+                        <div className="object-list-panel">
+                            <div className="panel-header">Objects ({objects.length})</div>
+                            <div className="object-list">
+                                {objects.map(obj => {
+                                    const baseEffort = EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+                                    const displayName = obj.name || `${obj.type} ${objects.indexOf(obj) + 1}`;
+                                    return (
+                                        <div
+                                            key={obj.id}
+                                            className={`object-list-item ${selectedObjectId === obj.id ? 'active' : ''}`}
+                                            onClick={() => setSelectedObjectId(obj.id)}
+                                        >
+                                            <div>
+                                                <div className="object-list-item-title">{displayName}</div>
+                                                <div className="object-list-item-meta">{obj.type} • {obj.complexity.replace('-', ' ')}</div>
+                                            </div>
+                                            <div className="object-list-item-meta">{baseEffort} hrs</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="object-list-actions">
+                                <button className="btn btn-primary full-width" onClick={addObject}>
+                                    ➕ Add Object
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="object-editor-panel">
+                            {selectedObject ? (
+                                <ObjectCard 
+                                    key={selectedObject.id}
+                                    object={selectedObject}
+                                    onUpdate={(updates) => updateObject(selectedObject.id, updates)}
+                                    onRemove={() => removeObject(selectedObject.id)}
+                                />
+                            ) : (
+                                <div className="empty-state" style={{ padding: 40 }}>
+                                    <div className="empty-state-icon">🧩</div>
+                                    <div className="empty-state-text">Select an object from the list or add a new one to begin editing.</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 20 }}>Effort Overrides & Adjustments</h3>
+                        <div className="effort-grid">
+                            <EffortOverride 
+                                label="Unit Testing"
+                                suggested={Math.round(efforts.development * 0.35)}
+                                value={overrides.unitTesting}
+                                onChange={(val) => updateOverride('unitTesting', val)}
+                            />
+                            <EffortOverride 
+                                label="SIT"
+                                suggested={Math.round(efforts.development * 0.45)}
+                                value={overrides.sit}
+                                onChange={(val) => updateOverride('sit', val)}
+                            />
+                            <EffortOverride 
+                                label="UAT"
+                                suggested={Math.round(efforts.development * 0.30)}
+                                value={overrides.uat}
+                                onChange={(val) => updateOverride('uat', val)}
+                            />
+                            <EffortOverride 
+                                label="Requirements"
+                                suggested={Math.round(efforts.development * 0.15)}
+                                value={overrides.requirements}
+                                onChange={(val) => updateOverride('requirements', val)}
+                            />
+                            <EffortOverride 
+                                label="Documentation"
+                                suggested={Math.round(efforts.development * 0.12)}
+                                value={overrides.documentation}
+                                onChange={(val) => updateOverride('documentation', val)}
+                            />
+                            <EffortOverride 
+                                label="Migration"
+                                suggested={objects.length * 8}
+                                value={overrides.migration}
+                                onChange={(val) => updateOverride('migration', val)}
+                            />
+                            <EffortOverride 
+                                label="Hypercare"
+                                suggested={80}
+                                value={overrides.hypercare}
+                                onChange={(val) => updateOverride('hypercare', val)}
+                            />
+                            <EffortOverride 
+                                label="Contingency (10%)"
+                                suggested={Math.round((efforts.development + efforts.unitTesting + efforts.sit + efforts.uat + efforts.requirements + efforts.documentation + efforts.migration + efforts.hypercare) * 0.10)}
+                                value={overrides.contingency}
+                                onChange={(val) => updateOverride('contingency', val)}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 10 }}>Notes</h3>
+                        <textarea 
+                            className="form-textarea"
+                            value={cr.notes || ''}
+                            onChange={(e) => onUpdate({ notes: e.target.value })}
+                            placeholder="Add any additional notes, assumptions, or justifications..."
+                            rows={4}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        function ObjectCard({ object, onUpdate, onRemove }) {
+            const baseEffort = EFFORT_MATRIX[object.type]?.[object.complexity] || 0;
+            const displayEffort = object.customEffort || baseEffort;
+
+            return (
+                <div className="object-card">
+                    <div className="object-header">
+                        <span className="object-type-badge">{object.type}</span>
+                        <button className="icon-btn" onClick={onRemove} title="Remove">
+                            ❌
+                        </button>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Object Type</label>
+                        <select 
+                            className="form-select"
+                            value={object.type}
+                            onChange={(e) => onUpdate({ type: e.target.value })}
+                        >
+                            {OBJECT_TYPES.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Object Name/Description</label>
+                        <input 
+                            type="text"
+                            className="form-input"
+                            value={object.name}
+                            onChange={(e) => onUpdate({ name: e.target.value })}
+                            placeholder="e.g., Time Layout, Accrual Formula"
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Complexity Level</label>
+                        <div className="complexity-selector">
+                            {COMPLEXITY_LEVELS.map(level => (
+                                <button
+                                    key={level}
+                                    className={`complexity-btn complexity-${level} ${object.complexity === level ? 'active' : ''}`}
+                                    onClick={() => onUpdate({ complexity: level, customEffort: null })}
+                                >
+                                    {level.replace('-', ' ').toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">
+                            Development Effort 
+                            <span style={{ fontSize: 12, color: '#7f8c8d', fontWeight: 'normal', marginLeft: 10 }}>
+                                (Suggested: {baseEffort} hrs)
+                            </span>
+                        </label>
+                        <input 
+                            type="number"
+                            className="form-input"
+                            value={object.customEffort || baseEffort}
+                            onChange={(e) => onUpdate({ customEffort: parseInt(e.target.value) || null })}
+                            min="0"
+                        />
+                        {object.customEffort && object.customEffort !== baseEffort && (
+                            <span className="badge badge-override" style={{ marginTop: 5, display: 'inline-block' }}>
+                                ⚠️ Overridden
+                            </span>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function EffortOverride({ label, suggested, value, onChange }) {
+            const isOverridden = value && value !== suggested;
+            const displayValue = value || suggested;
+
+            return (
+                <div className="effort-item">
+                    <div className="effort-item-label">
+                        {label}
+                        {isOverridden && <span className="badge badge-override" style={{ marginLeft: 5 }}>Override</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input 
+                            type="number"
+                            className="form-input"
+                            value={displayValue}
+                            onChange={(e) => onChange(e.target.value)}
+                            min="0"
+                            style={{ fontSize: 16, padding: 8 }}
+                        />
+                        <span style={{ fontSize: 14, color: '#7f8c8d' }}>hrs</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#95a5a6', marginTop: 5 }}>
+                        Suggested: {suggested} hrs
+                    </div>
+                </div>
+            );
+        }
+
+        function CRSummary({ cr, onExport }) {
+            const efforts = calculateEfforts(cr.objects || [], cr.overrides || {});
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Development', 'Testing', 'Requirements', 'Documentation', 'Migration', 'Hypercare', 'Contingency'],
+                            datasets: [{
+                                data: [
+                                    efforts.development,
+                                    efforts.unitTesting + efforts.sit + efforts.uat,
+                                    efforts.requirements,
+                                    efforts.documentation,
+                                    efforts.migration,
+                                    efforts.hypercare,
+                                    efforts.contingency
+                                ],
+                                backgroundColor: [
+                                    '#1e88e5',
+                                    '#43a047',
+                                    '#ffa726',
+                                    '#ab47bc',
+                                    '#26c6da',
+                                    '#ef5350',
+                                    '#78909c'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [efforts]);
+
+            const exportToExcel = () => {
+                const formatDecimal = (num) => Math.round(num * 10) / 10;
+
+                // Complexity badge colors
+                const complexityColor = {
+                    'simple': '#388E3C',
+                    'medium': '#F57C00',
+                    'complex': '#D32F2F',
+                    'very-complex': '#7B1FA2'
+                };
+
+                // Status badge colors
+                const statusColor = {
+                    'Draft': '#F57C00',
+                    'In Review': '#1976D2',
+                    'Approved': '#388E3C',
+                    'Completed': '#7B1FA2'
+                };
+
+                // Group objects by type for the type breakdown summary
+                const typeBreakdown = {};
+                cr.objects.forEach(obj => {
+                    if (!typeBreakdown[obj.type]) typeBreakdown[obj.type] = { count: 0, hours: 0 };
+                    const baseEffort = EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+                    typeBreakdown[obj.type].count++;
+                    typeBreakdown[obj.type].hours += obj.customEffort || baseEffort;
+                });
+
+                const statusBg = statusColor[cr.status] || '#546E7A';
+
+                const effortItems = [
+                    ['Development', efforts.development, '#1565C0', '#E3F2FD'],
+                    ['Unit Testing', efforts.unitTesting, '#2E7D32', '#E8F5E9'],
+                    ['SIT', efforts.sit, '#2E7D32', '#F1F8E9'],
+                    ['UAT', efforts.uat, '#2E7D32', '#E8F5E9'],
+                    ['Requirements Analysis', efforts.requirements, '#E65100', '#FFF3E0'],
+                    ['Documentation', efforts.documentation, '#6A1B9A', '#F3E5F5'],
+                    ['Production Migration', efforts.migration, '#00838F', '#E0F7FA'],
+                    ['Hypercare Support', efforts.hypercare, '#AD1457', '#FCE4EC'],
+                    ['Contingency (10%)', efforts.contingency, '#546E7A', '#ECEFF1']
+                ];
+
+                const testingTotal = efforts.unitTesting + efforts.sit + efforts.uat;
+
+                const html = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8"/>
+<!--[if gte mso 9]><xml>
+<x:ExcelWorkbook><x:ExcelWorksheets>
+<x:ExcelWorksheet><x:Name>Effort Estimation</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet>
+</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { padding: 0; }
+
+  /* ── Cover / Title ── */
+  .cover-banner { background:#C74634; color:#fff; font-size:18pt; font-weight:bold; padding:14px 18px; border:none; }
+  .cover-sub    { background:#8B2A1A; color:#fff; font-size:10pt; padding:6px 18px; border:none; }
+  .cover-meta   { background:#F9F9F9; font-size:10pt; padding:5px 10px; border:1px solid #E0E0E0; }
+  .cover-meta-label { background:#F9F9F9; font-weight:bold; color:#C74634; font-size:10pt; padding:5px 10px; border:1px solid #E0E0E0; width:120px; }
+  .cover-status { color:#fff; font-weight:bold; font-size:10pt; padding:4px 12px; border-radius:4px; border:none; }
+  .spacer       { border:none; height:10px; }
+
+  /* ── Section heading ── */
+  .sec-heading  { background:#C74634; color:#fff; font-weight:bold; font-size:12pt; padding:8px 12px; border:none; }
+  .sec-heading-blue { background:#0A4D8C; color:#fff; font-weight:bold; font-size:12pt; padding:8px 12px; border:none; }
+
+  /* ── Col headers ── */
+  .col-hdr      { background:#2C3E50; color:#fff; font-weight:bold; font-size:10pt; text-align:center; padding:7px 10px; border:1px solid #1A252F; }
+  .col-hdr-left { background:#2C3E50; color:#fff; font-weight:bold; font-size:10pt; text-align:left;   padding:7px 10px; border:1px solid #1A252F; }
+
+  /* ── Data rows ── */
+  .row-a  { background:#FFFFFF; font-size:10pt; padding:6px 10px; border:1px solid #E0E0E0; }
+  .row-b  { background:#F5F8FF; font-size:10pt; padding:6px 10px; border:1px solid #E0E0E0; }
+  .row-c  { background:#FFF8F0; font-size:10pt; padding:6px 10px; border:1px solid #E0E0E0; }
+  .num    { text-align:center; }
+  .lft    { text-align:left; }
+
+  /* ── Total row ── */
+  .total-row    { background:#FFF2CC; font-weight:bold; font-size:11pt; padding:7px 10px; border:2px solid #F0C800; }
+  .total-row-c  { background:#FFF2CC; font-weight:bold; font-size:11pt; text-align:center; padding:7px 10px; border:2px solid #F0C800; }
+  .grand-total  { background:#C74634; color:#fff; font-weight:bold; font-size:13pt; padding:9px 12px; border:none; text-align:center; }
+
+  /* ── Complexity badges ── */
+  .badge-simple       { background:#E8F5E9; color:#2E7D32; font-weight:bold; text-align:center; font-size:9pt; padding:3px 8px; border:1px solid #A5D6A7; }
+  .badge-medium       { background:#FFF3E0; color:#E65100; font-weight:bold; text-align:center; font-size:9pt; padding:3px 8px; border:1px solid #FFCC80; }
+  .badge-complex      { background:#FFEBEE; color:#C62828; font-weight:bold; text-align:center; font-size:9pt; padding:3px 8px; border:1px solid #EF9A9A; }
+  .badge-very-complex { background:#F3E5F5; color:#6A1B9A; font-weight:bold; text-align:center; font-size:9pt; padding:3px 8px; border:1px solid #CE93D8; }
+
+  /* ── Type breakdown ── */
+  .type-hdr     { background:#0A4D8C; color:#fff; font-weight:bold; font-size:10pt; text-align:center; padding:6px 10px; border:1px solid #083A70; }
+  .type-hdr-l   { background:#0A4D8C; color:#fff; font-weight:bold; font-size:10pt; text-align:left;   padding:6px 10px; border:1px solid #083A70; }
+  .type-a       { background:#EEF4FF; font-size:10pt; text-align:center; padding:5px 10px; border:1px solid #C5D8F5; }
+  .type-b       { background:#FFFFFF; font-size:10pt; text-align:center; padding:5px 10px; border:1px solid #C5D8F5; }
+  .type-lft-a   { background:#EEF4FF; font-size:10pt; text-align:left;   padding:5px 10px; border:1px solid #C5D8F5; }
+  .type-lft-b   { background:#FFFFFF; font-size:10pt; text-align:left;   padding:5px 10px; border:1px solid #C5D8F5; }
+
+  /* ── Assumptions/Notes ── */
+  .notes-label  { background:#ECEFF1; font-weight:bold; font-size:10pt; color:#37474F; padding:6px 10px; border:1px solid #CFD8DC; width:140px; }
+  .notes-value  { background:#FFFFFF; font-size:10pt; color:#263238; padding:6px 10px; border:1px solid #CFD8DC; }
+
+  /* ── Signoff ── */
+  .signoff-hdr  { background:#37474F; color:#fff; font-weight:bold; font-size:10pt; text-align:center; padding:6px 10px; border:1px solid #263238; }
+  .signoff-cell { background:#FAFAFA; font-size:10pt; text-align:center; padding:14px 10px; border:1px solid #CFD8DC; }
+  .signoff-line { background:#ECEFF1; font-size:9pt; color:#78909C; text-align:center; padding:3px 10px; border:1px solid #CFD8DC; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     SHEET: COVER / CR DETAILS
+     ════════════════════════════════════════════════ -->
+<table style="width:700px; margin-bottom:0;">
+  <col style="width:160px"/>
+  <col style="width:540px"/>
+
+  <tr><td class="cover-banner" colspan="2">🧠 SMart Effort Estimator</td></tr>
+  <tr><td class="cover-sub"    colspan="2">Oracle Fusion HCM Implementation — Effort Estimation Report</td></tr>
+  <tr><td class="spacer"       colspan="2"></td></tr>
+
+  <tr><td class="sec-heading" colspan="2">📋 Change Request Details</td></tr>
+  <tr><td class="cover-meta-label">CR Number</td>   <td class="cover-meta">CR-${cr.crNumber}</td></tr>
+  <tr><td class="cover-meta-label">Title</td>        <td class="cover-meta">${cr.title}</td></tr>
+  <tr><td class="cover-meta-label">Client / Project</td><td class="cover-meta">${cr.clientName} / ${cr.projectName}</td></tr>
+  <tr>
+    <td class="cover-meta-label">Status</td>
+    <td class="cover-meta">
+      <span style="background:${statusBg};color:#fff;font-weight:bold;padding:2px 10px;border-radius:3px;">${cr.status}</span>
+    </td>
+  </tr>
+  <tr><td class="cover-meta-label">Created Date</td> <td class="cover-meta">${new Date(cr.createdDate).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</td></tr>
+  ${cr.description ? `<tr><td class="cover-meta-label">Description</td><td class="cover-meta">${cr.description}</td></tr>` : ''}
+  <tr><td class="cover-meta-label">Total Objects</td><td class="cover-meta">${cr.objects.length} configuration items</td></tr>
+
+  <tr><td class="spacer" colspan="2"></td></tr>
+
+  <!-- ── Quick KPI strip ── -->
+  <tr><td class="sec-heading" colspan="2">⚡ Key Metrics at a Glance</td></tr>
+</table>
+
+<table style="width:700px; border-collapse:collapse; margin-bottom:0;">
+  <col style="width:175px"/><col style="width:175px"/><col style="width:175px"/><col style="width:175px"/>
+  <tr>
+    <td style="background:#1565C0;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #0D47A1;font-size:10pt;">Development</td>
+    <td style="background:#2E7D32;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #1B5E20;font-size:10pt;">Testing (UT+SIT+UAT)</td>
+    <td style="background:#E65100;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #BF360C;font-size:10pt;">Other Activities</td>
+    <td style="background:#C74634;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #8B2A1A;font-size:10pt;">Grand Total</td>
+  </tr>
+  <tr>
+    <td style="background:#E3F2FD;color:#0D47A1;font-weight:bold;text-align:center;padding:12px 6px;border:2px solid #90CAF9;font-size:16pt;">${efforts.development}<span style="font-size:10pt;font-weight:normal;"> hrs</span></td>
+    <td style="background:#E8F5E9;color:#1B5E20;font-weight:bold;text-align:center;padding:12px 6px;border:2px solid #A5D6A7;font-size:16pt;">${testingTotal}<span style="font-size:10pt;font-weight:normal;"> hrs</span></td>
+    <td style="background:#FFF3E0;color:#BF360C;font-weight:bold;text-align:center;padding:12px 6px;border:2px solid #FFCC80;font-size:16pt;">${efforts.requirements+efforts.documentation+efforts.migration+efforts.hypercare}<span style="font-size:10pt;font-weight:normal;"> hrs</span></td>
+    <td style="background:#FFF2CC;color:#C74634;font-weight:bold;text-align:center;padding:12px 6px;border:2px solid #F0C800;font-size:16pt;">${efforts.total}<span style="font-size:10pt;font-weight:normal;"> hrs</span></td>
+  </tr>
+  <tr>
+    <td style="background:#E3F2FD;color:#546E7A;font-size:9pt;text-align:center;padding:4px;border:1px solid #90CAF9;">${formatDecimal(efforts.development/8)} days / ${formatDecimal(efforts.development/40)} wks</td>
+    <td style="background:#E8F5E9;color:#546E7A;font-size:9pt;text-align:center;padding:4px;border:1px solid #A5D6A7;">${formatDecimal(testingTotal/8)} days / ${formatDecimal(testingTotal/40)} wks</td>
+    <td style="background:#FFF3E0;color:#546E7A;font-size:9pt;text-align:center;padding:4px;border:1px solid #FFCC80;">${formatDecimal((efforts.requirements+efforts.documentation+efforts.migration+efforts.hypercare)/8)} days</td>
+    <td style="background:#FFF2CC;color:#546E7A;font-size:9pt;text-align:center;padding:4px;border:1px solid #F0C800;">${formatDecimal(efforts.total/8)} days / ${formatDecimal(efforts.total/40)} wks</td>
+  </tr>
+</table>
+
+<br/>
+
+<!-- ════════════════════════════════════════════════
+     EFFORT BREAKDOWN TABLE
+     ════════════════════════════════════════════════ -->
+<table style="width:700px;">
+  <col style="width:280px"/><col style="width:100px"/><col style="width:100px"/><col style="width:100px"/><col style="width:120px"/>
+  <tr><td class="sec-heading" colspan="5">📊 Effort Breakdown by Activity</td></tr>
+  <tr>
+    <td class="col-hdr-left">Activity / Phase</td>
+    <td class="col-hdr">Hours</td>
+    <td class="col-hdr">Days (8h)</td>
+    <td class="col-hdr">Weeks (40h)</td>
+    <td class="col-hdr">% of Total</td>
+  </tr>
+  ${effortItems.map(([label, hours, accent, bg], i) => `
+  <tr>
+    <td style="background:${bg};color:${accent};font-weight:bold;font-size:10pt;padding:6px 10px;border:1px solid #E0E0E0;">${label}</td>
+    <td style="background:${bg};color:#263238;font-size:10pt;text-align:center;padding:6px 10px;border:1px solid #E0E0E0;font-weight:bold;">${hours}</td>
+    <td style="background:${bg};color:#263238;font-size:10pt;text-align:center;padding:6px 10px;border:1px solid #E0E0E0;">${formatDecimal(hours/8)}</td>
+    <td style="background:${bg};color:#263238;font-size:10pt;text-align:center;padding:6px 10px;border:1px solid #E0E0E0;">${formatDecimal(hours/40)}</td>
+    <td style="background:${bg};color:#263238;font-size:10pt;text-align:center;padding:6px 10px;border:1px solid #E0E0E0;">${efforts.total > 0 ? Math.round(hours/efforts.total*100) : 0}%</td>
+  </tr>`).join('')}
+  <tr>
+    <td class="total-row">✅ TOTAL EFFORT</td>
+    <td class="total-row-c">${efforts.total}</td>
+    <td class="total-row-c">${formatDecimal(efforts.total/8)}</td>
+    <td class="total-row-c">${formatDecimal(efforts.total/40)}</td>
+    <td class="total-row-c">100%</td>
+  </tr>
+</table>
+
+<br/>
+
+<!-- ════════════════════════════════════════════════
+     EFFORT BY OBJECT TYPE
+     ════════════════════════════════════════════════ -->
+<table style="width:700px;">
+  <col style="width:220px"/><col style="width:120px"/><col style="width:120px"/><col style="width:120px"/><col style="width:120px"/>
+  <tr><td class="sec-heading-blue" colspan="5">🏷️ Effort Summary by Object Type</td></tr>
+  <tr>
+    <td class="type-hdr-l">Object Type</td>
+    <td class="type-hdr">Count</td>
+    <td class="type-hdr">Total Hours</td>
+    <td class="type-hdr">Avg Hours/Item</td>
+    <td class="type-hdr">% of Dev Effort</td>
+  </tr>
+  ${Object.entries(typeBreakdown).map(([type, data], i) => `
+  <tr>
+    <td class="${i%2===0?'type-lft-a':'type-lft-b'}" style="font-weight:bold;">${type}</td>
+    <td class="${i%2===0?'type-a':'type-b'}">${data.count}</td>
+    <td class="${i%2===0?'type-a':'type-b'}" style="font-weight:bold;">${data.hours} hrs</td>
+    <td class="${i%2===0?'type-a':'type-b'}">${formatDecimal(data.hours/data.count)} hrs</td>
+    <td class="${i%2===0?'type-a':'type-b'}">${efforts.development > 0 ? Math.round(data.hours/efforts.development*100) : 0}%</td>
+  </tr>`).join('')}
+</table>
+
+<br/>
+
+<!-- ════════════════════════════════════════════════
+     CONFIGURATION OBJECTS DETAIL
+     ════════════════════════════════════════════════ -->
+<table style="width:700px;">
+  <col style="width:130px"/><col style="width:180px"/><col style="width:80px"/><col style="width:110px"/><col style="width:80px"/><col style="width:80px"/><col style="width:90px"/>
+  <tr><td class="sec-heading" colspan="7">🔧 Configuration Objects — Detailed Breakdown</td></tr>
+  <tr>
+    <td class="col-hdr">Object Type</td>
+    <td class="col-hdr-left">Name</td>
+    <td class="col-hdr">Instances</td>
+    <td class="col-hdr">Complexity</td>
+    <td class="col-hdr">Hours</td>
+    <td class="col-hdr">Days</td>
+    <td class="col-hdr">Weeks</td>
+  </tr>
+  ${cr.objects.map((obj, i) => {
+    const baseEffort = EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+    const effortHours = obj.customEffort || baseEffort;
+    const rowBg = i%2===0 ? '#FFFFFF' : '#F5F8FF';
+    const complexityClass = `badge-${obj.complexity}`;
+    return `
+  <tr>
+    <td style="background:${rowBg};font-size:10pt;text-align:center;padding:6px 8px;border:1px solid #E0E0E0;font-weight:bold;color:#0A4D8C;">${obj.type}</td>
+    <td style="background:${rowBg};font-size:10pt;text-align:left;padding:6px 10px;border:1px solid #E0E0E0;">${obj.name || '—'}</td>
+    <td style="background:${rowBg};font-size:10pt;text-align:center;padding:6px 8px;border:1px solid #E0E0E0;font-weight:bold;">${obj.templateInstances || 1}</td>
+    <td class="${complexityClass}">${obj.complexity.charAt(0).toUpperCase()+obj.complexity.slice(1).replace('-',' ')}</td>
+    <td style="background:${rowBg};font-size:10pt;text-align:center;padding:6px 8px;border:1px solid #E0E0E0;font-weight:bold;">${effortHours}</td>
+    <td style="background:${rowBg};font-size:10pt;text-align:center;padding:6px 8px;border:1px solid #E0E0E0;">${formatDecimal(effortHours/8)}</td>
+    <td style="background:${rowBg};font-size:10pt;text-align:center;padding:6px 8px;border:1px solid #E0E0E0;">${formatDecimal(effortHours/40)}</td>
+  </tr>`;
+  }).join('')}
+  <tr>
+    <td style="background:#FFF2CC;font-weight:bold;font-size:10pt;text-align:center;padding:7px 8px;border:2px solid #F0C800;" colspan="4">Total Development Effort</td>
+    <td style="background:#FFF2CC;font-weight:bold;font-size:11pt;text-align:center;padding:7px 8px;border:2px solid #F0C800;">${efforts.development}</td>
+    <td style="background:#FFF2CC;font-weight:bold;font-size:10pt;text-align:center;padding:7px 8px;border:2px solid #F0C800;">${formatDecimal(efforts.development/8)}</td>
+    <td style="background:#FFF2CC;font-weight:bold;font-size:10pt;text-align:center;padding:7px 8px;border:2px solid #F0C800;">${formatDecimal(efforts.development/40)}</td>
+  </tr>
+</table>
+
+<br/>
+
+<!-- ════════════════════════════════════════════════
+     ASSUMPTIONS & NOTES
+     ════════════════════════════════════════════════ -->
+<table style="width:700px;">
+  <col style="width:160px"/><col style="width:540px"/>
+  <tr><td class="sec-heading" colspan="2">📝 Assumptions &amp; Notes</td></tr>
+  <tr>
+    <td class="notes-label">Estimation Basis</td>
+    <td class="notes-value">Based on Oracle Fusion HCM standard effort matrix with complexity-weighted hours per object type.</td>
+  </tr>
+  <tr>
+    <td class="notes-label">Testing Ratios</td>
+    <td class="notes-value">Unit Testing: 35% of Dev • SIT: 45% of Dev • UAT: 30% of Dev</td>
+  </tr>
+  <tr>
+    <td class="notes-label">Contingency</td>
+    <td class="notes-value">10% buffer applied to total effort (excluding contingency) for risk and scope variation.</td>
+  </tr>
+  <tr>
+    <td class="notes-label">Working Day</td>
+    <td class="notes-value">1 Day = 8 Hours &nbsp;|&nbsp; 1 Week = 40 Hours (5 working days)</td>
+  </tr>
+  <tr>
+    <td class="notes-label">Hypercare</td>
+    <td class="notes-value">Fixed 80 hours post-go-live support unless overridden.</td>
+  </tr>
+  ${cr.notes ? `<tr><td class="notes-label">Additional Notes</td><td class="notes-value">${cr.notes}</td></tr>` : ''}
+</table>
+
+<br/>
+
+<!-- ════════════════════════════════════════════════
+     SIGN-OFF SECTION
+     ════════════════════════════════════════════════ -->
+<table style="width:700px;">
+  <col style="width:233px"/><col style="width:233px"/><col style="width:234px"/>
+  <tr><td class="sec-heading" colspan="3">✍️ Approval &amp; Sign-Off</td></tr>
+  <tr>
+    <td class="signoff-hdr">Prepared By</td>
+    <td class="signoff-hdr">Reviewed By</td>
+    <td class="signoff-hdr">Approved By</td>
+  </tr>
+  <tr>
+    <td class="signoff-cell"> </td>
+    <td class="signoff-cell"> </td>
+    <td class="signoff-cell"> </td>
+  </tr>
+  <tr>
+    <td class="signoff-line">Name &amp; Designation</td>
+    <td class="signoff-line">Name &amp; Designation</td>
+    <td class="signoff-line">Name &amp; Designation</td>
+  </tr>
+  <tr>
+    <td class="signoff-cell"> </td>
+    <td class="signoff-cell"> </td>
+    <td class="signoff-cell"> </td>
+  </tr>
+  <tr>
+    <td class="signoff-line">Signature &amp; Date</td>
+    <td class="signoff-line">Signature &amp; Date</td>
+    <td class="signoff-line">Signature &amp; Date</td>
+  </tr>
+</table>
+
+<br/>
+<table style="width:700px;">
+  <tr>
+    <td style="background:#F5F5F5;color:#AAAAAA;font-size:8pt;text-align:center;padding:6px;border:none;">
+      Generated by SMart Effort Estimator • Oracle Fusion HCM • ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} • CR-${cr.crNumber} — ${cr.clientName}
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>`;
+
+                const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `CR-${cr.crNumber}_Estimation.xls`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
+
+            const exportToPDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Helper function to format number to 1 decimal place
+                const formatDecimal = (num) => Math.round(num * 10) / 10;
+                
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                let yPosition = 20;
+                
+                // Oracle colors (RGB values for Oracle Red)
+                const oracleRed = [199, 70, 52]; // Oracle Redwood red
+                const white = [255, 255, 255];
+                const lightGray = [245, 245, 245];
+                
+                // Title
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(16);
+                doc.setTextColor(0, 0, 0);
+                doc.text('SMart Effort Estimator - Oracle Fusion HCM', pageWidth / 2, yPosition, { align: 'center' });
+                
+                yPosition += 15;
+                
+                // CR Details Section
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text('CR Details', 20, yPosition);
+                yPosition += 8;
+                
+                // CR Details Table
+                const crHeaders = ['Field', 'Value'];
+                const crColWidths = [40, 120];
+                let xStart = 20;
+                
+                // Draw CR header background
+                doc.setFillColor(oracleRed[0], oracleRed[1], oracleRed[2]);
+                doc.rect(xStart, yPosition, crColWidths[0] + crColWidths[1], 8, 'F');
+                
+                // Draw CR header text
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(white[0], white[1], white[2]);
+                doc.setFontSize(10);
+                let xPos = xStart;
+                crHeaders.forEach((header, idx) => {
+                    doc.text(header, xPos + crColWidths[idx] / 2, yPosition + 5, { align: 'center' });
+                    xPos += crColWidths[idx];
+                });
+                
+                yPosition += 10;
+                
+                // CR Details rows
+                const crDetails = [
+                    ['CR Number', `CR-${cr.crNumber}`],
+                    ['Title', cr.title],
+                    ['Client', cr.clientName],
+                    ['Status', cr.status],
+                    ['Date', new Date(cr.createdDate).toLocaleDateString()]
+                ];
+                
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(9);
+                
+                crDetails.forEach((row, idx) => {
+                    // Alternate row colors
+                    if (idx % 2 === 0) {
+                        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                        doc.rect(xStart, yPosition - 3, crColWidths[0] + crColWidths[1], 7, 'F');
+                    }
+                    
+                    // Draw row data
+                    xPos = xStart;
+                    row.forEach((cell, colIdx) => {
+                        const align = colIdx === 0 ? 'left' : 'left';
+                        doc.text(String(cell), xPos + 2, yPosition, { align });
+                        xPos += crColWidths[colIdx];
+                    });
+                    
+                    yPosition += 7;
+                });
+                
+                yPosition += 10;
+                
+                // Effort Breakdown Section
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text('Effort Breakdown', 20, yPosition);
+                yPosition += 8;
+                
+                // Effort Breakdown Table
+                const effortHeaders = ['Category', 'Hours', 'Days', 'Weeks'];
+                const effortColWidths = [60, 30, 30, 30];
+                xStart = 20;
+                
+                // Draw effort header background
+                doc.setFillColor(oracleRed[0], oracleRed[1], oracleRed[2]);
+                doc.rect(xStart, yPosition, effortColWidths[0] + effortColWidths[1] + effortColWidths[2] + effortColWidths[3], 8, 'F');
+                
+                // Draw effort header text
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(white[0], white[1], white[2]);
+                doc.setFontSize(10);
+                xPos = xStart;
+                effortHeaders.forEach((header, idx) => {
+                    doc.text(header, xPos + effortColWidths[idx] / 2, yPosition + 5, { align: 'center' });
+                    xPos += effortColWidths[idx];
+                });
+                
+                yPosition += 10;
+                
+                // Effort data rows
+                const effortItems = [
+                    ['Development', efforts.development, formatDecimal(efforts.development / 8), formatDecimal(efforts.development / 40)],
+                    ['Unit Testing', efforts.unitTesting, formatDecimal(efforts.unitTesting / 8), formatDecimal(efforts.unitTesting / 40)],
+                    ['SIT', efforts.sit, formatDecimal(efforts.sit / 8), formatDecimal(efforts.sit / 40)],
+                    ['UAT', efforts.uat, formatDecimal(efforts.uat / 8), formatDecimal(efforts.uat / 40)],
+                    ['Requirements Analysis', efforts.requirements, formatDecimal(efforts.requirements / 8), formatDecimal(efforts.requirements / 40)],
+                    ['Documentation', efforts.documentation, formatDecimal(efforts.documentation / 8), formatDecimal(efforts.documentation / 40)],
+                    ['Production Migration', efforts.migration, formatDecimal(efforts.migration / 8), formatDecimal(efforts.migration / 40)],
+                    ['Hypercare Support', efforts.hypercare, formatDecimal(efforts.hypercare / 8), formatDecimal(efforts.hypercare / 40)],
+                    ['Contingency', efforts.contingency, formatDecimal(efforts.contingency / 8), formatDecimal(efforts.contingency / 40)]
+                ];
+                
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(9);
+                
+                effortItems.forEach((row, idx) => {
+                    // Alternate row colors
+                    if (idx % 2 === 0) {
+                        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                        doc.rect(xStart, yPosition - 3, effortColWidths[0] + effortColWidths[1] + effortColWidths[2] + effortColWidths[3], 7, 'F');
+                    }
+                    
+                    // Draw row data
+                    xPos = xStart;
+                    row.forEach((cell, colIdx) => {
+                        const align = colIdx === 0 ? 'left' : 'center';
+                        doc.text(String(cell), xPos + (colIdx === 0 ? 2 : effortColWidths[colIdx] / 2), yPosition, { align });
+                        xPos += effortColWidths[colIdx];
+                    });
+                    
+                    yPosition += 7;
+                });
+                
+                // Total row
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(0, 0, 0);
+                
+                xPos = xStart;
+                const totalRow = ['Total Effort', efforts.total, formatDecimal(efforts.total / 8), formatDecimal(efforts.total / 40)];
+                totalRow.forEach((cell, colIdx) => {
+                    const align = colIdx === 0 ? 'left' : 'center';
+                    doc.text(String(cell), xPos + (colIdx === 0 ? 2 : effortColWidths[colIdx] / 2), yPosition, { align });
+                    xPos += effortColWidths[colIdx];
+                });
+                
+                yPosition += 12;
+                
+                // Objects Detail Section
+                if (yPosition > pageHeight - 60) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text('Configuration Objects Detail', 20, yPosition);
+                yPosition += 8;
+                
+                // Objects table
+                const objectHeaders = ['Object Type', 'Name', 'Complexity', 'Hours', 'Days', 'Weeks'];
+                const objectColWidths = [25, 45, 25, 20, 20, 20];
+                xStart = 20;
+                
+                // Draw objects header background
+                doc.setFillColor(oracleRed[0], oracleRed[1], oracleRed[2]);
+                doc.rect(xStart, yPosition, objectColWidths.reduce((a, b) => a + b, 0), 8, 'F');
+                
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(white[0], white[1], white[2]);
+                doc.setFontSize(9);
+                xPos = xStart;
+                objectHeaders.forEach((header, idx) => {
+                    doc.text(header, xPos + objectColWidths[idx] / 2, yPosition + 5, { align: 'center' });
+                    xPos += objectColWidths[idx];
+                });
+                
+                yPosition += 10;
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(8);
+                
+                // Draw objects rows
+                cr.objects.forEach((obj, idx) => {
+                    if (yPosition > pageHeight - 15) {
+                        doc.addPage();
+                        yPosition = 20;
+                        
+                        // Redraw header on new page
+                        doc.setFillColor(oracleRed[0], oracleRed[1], oracleRed[2]);
+                        doc.rect(xStart, yPosition, objectColWidths.reduce((a, b) => a + b, 0), 8, 'F');
+                        
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(white[0], white[1], white[2]);
+                        doc.setFontSize(9);
+                        xPos = xStart;
+                        objectHeaders.forEach((header, headerIdx) => {
+                            doc.text(header, xPos + objectColWidths[headerIdx] / 2, yPosition + 5, { align: 'center' });
+                            xPos += objectColWidths[headerIdx];
+                        });
+                        
+                        yPosition += 10;
+                        doc.setFont(undefined, 'normal');
+                        doc.setTextColor(0, 0, 0);
+                        doc.setFontSize(8);
+                    }
+                    
+                    const baseEffort = EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+                    const effortHours = obj.customEffort || baseEffort;
+                    
+                    // Alternate row colors
+                    if (idx % 2 === 0) {
+                        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                        doc.rect(xStart, yPosition - 3, objectColWidths.reduce((a, b) => a + b, 0), 6, 'F');
+                    }
+                    
+                    const objectRow = [
+                        obj.type,
+                        obj.name,
+                        obj.complexity,
+                        effortHours,
+                        formatDecimal(effortHours / 8),
+                        formatDecimal(effortHours / 40)
+                    ];
+                    
+                    xPos = xStart;
+                    objectRow.forEach((cell, colIdx) => {
+                        const align = colIdx === 0 || colIdx === 1 ? 'left' : 'center';
+                        doc.text(String(cell), xPos + (colIdx === 0 || colIdx === 1 ? 2 : objectColWidths[colIdx] / 2), yPosition, { align });
+                        xPos += objectColWidths[colIdx];
+                    });
+                    
+                    yPosition += 6;
+                });
+                
+                doc.save(`CR-${cr.crNumber}_Estimation.pdf`);
+            };
+
+            return (
+                <div className="content-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+                        <div>
+                            <h2>{cr.title}</h2>
+                            <p style={{ color: '#7f8c8d', marginTop: 5 }}>CR-{cr.crNumber} • Effort Summary</p>
+                        </div>
+                        <div className="action-buttons">
+                            <button className="btn btn-success" onClick={exportToExcel}>
+                                📊 Export Excel
+                            </button>
+                            <button className="btn btn-primary" onClick={exportToPDF}>
+                                📄 Export PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="summary-grid">
+                        <div className="summary-card primary">
+                            <div className="summary-label">Total Effort</div>
+                            <div className="summary-value">{efforts.total} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card success">
+                            <div className="summary-label">Development</div>
+                            <div className="summary-value">{efforts.development} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card warning">
+                            <div className="summary-label">Testing</div>
+                            <div className="summary-value">{efforts.unitTesting + efforts.sit + efforts.uat} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card danger">
+                            <div className="summary-label">Objects</div>
+                            <div className="summary-value">{cr.objects?.length || 0}</div>
+                        </div>
+                    </div>
+
+                    <div className="chart-container">
+                        <h3 style={{ marginBottom: 20 }}>Effort Distribution</h3>
+                        <div style={{ height: 400 }}>
+                            <canvas ref={chartRef}></canvas>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style={{ marginBottom: 20 }}>Detailed Breakdown</h3>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Hours</th>
+                                    <th>% of Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Development</td>
+                                    <td>{efforts.development}</td>
+                                    <td>{Math.round((efforts.development / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Unit Testing</td>
+                                    <td>{efforts.unitTesting}</td>
+                                    <td>{Math.round((efforts.unitTesting / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>SIT</td>
+                                    <td>{efforts.sit}</td>
+                                    <td>{Math.round((efforts.sit / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>UAT</td>
+                                    <td>{efforts.uat}</td>
+                                    <td>{Math.round((efforts.uat / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Requirements Analysis</td>
+                                    <td>{efforts.requirements}</td>
+                                    <td>{Math.round((efforts.requirements / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Documentation</td>
+                                    <td>{efforts.documentation}</td>
+                                    <td>{Math.round((efforts.documentation / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Production Migration</td>
+                                    <td>{efforts.migration}</td>
+                                    <td>{Math.round((efforts.migration / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Hypercare Support</td>
+                                    <td>{efforts.hypercare}</td>
+                                    <td>{Math.round((efforts.hypercare / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Contingency</td>
+                                    <td>{efforts.contingency}</td>
+                                    <td>{Math.round((efforts.contingency / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr style={{ fontWeight: 'bold', background: '#f8f9fa' }}>
+                                    <td>TOTAL</td>
+                                    <td>{efforts.total}</td>
+                                    <td>100%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 20 }}>Objects Detail</h3>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Object Type</th>
+                                    <th>Name</th>
+                                    <th>Complexity</th>
+                                    <th>Effort (hrs)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {cr.objects?.map(obj => {
+                                    const baseEffort = EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+                                    const displayEffort = obj.customEffort || baseEffort;
+                                    return (
+                                        <tr key={obj.id}>
+                                            <td>{obj.type}</td>
+                                            <td>{obj.name || '-'}</td>
+                                            <td>{obj.complexity.replace('-', ' ').toUpperCase()}</td>
+                                            <td>
+                                                {displayEffort}
+                                                {obj.customEffort && obj.customEffort !== baseEffort && (
+                                                    <span className="badge badge-override" style={{ marginLeft: 8 }}>
+                                                        Override
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {cr.notes && (
+                        <div style={{ marginTop: 40 }}>
+                            <h3 style={{ marginBottom: 10 }}>Notes</h3>
+                            <div style={{ 
+                                background: '#f8f9fa', 
+                                padding: 20, 
+                                borderRadius: 8,
+                                whiteSpace: 'pre-wrap'
+                            }}>
+                                {cr.notes}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function Analytics({ crs }) {
+            if (crs.length === 0) {
+                return (
+                    <div className="content-card">
+                        <div className="empty-state">
+                            <div className="empty-state-icon">📈</div>
+                            <div className="empty-state-text">No data available for analytics</div>
+                            <p style={{ color: '#95a5a6' }}>Create some CRs to see analytics and insights</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            const totalCRs = crs.length;
+            const totalEfforts = crs.reduce((sum, cr) => {
+                const efforts = calculateEfforts(cr.objects || [], cr.overrides || {});
+                return sum + efforts.total;
+            }, 0);
+            const avgEffort = Math.round(totalEfforts / totalCRs);
+            const totalObjects = crs.reduce((sum, cr) => sum + (cr.objects?.length || 0), 0);
+
+            // Status distribution
+            const statusCounts = STATUSES.reduce((acc, status) => {
+                acc[status] = crs.filter(cr => cr.status === status).length;
+                return acc;
+            }, {});
+
+            // Object type distribution
+            const objectTypeCounts = {};
+            crs.forEach(cr => {
+                cr.objects?.forEach(obj => {
+                    objectTypeCounts[obj.type] = (objectTypeCounts[obj.type] || 0) + 1;
+                });
+            });
+
+            return (
+                <div className="content-card">
+                    <h2 style={{ marginBottom: 30 }}>Analytics Dashboard</h2>
+
+                    <div className="summary-grid">
+                        <div className="summary-card primary">
+                            <div className="summary-label">Total CRs</div>
+                            <div className="summary-value">{totalCRs}</div>
+                        </div>
+                        <div className="summary-card success">
+                            <div className="summary-label">Total Effort</div>
+                            <div className="summary-value">{totalEfforts} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card warning">
+                            <div className="summary-label">Avg Effort/CR</div>
+                            <div className="summary-value">{avgEffort} <span className="summary-unit">hrs</span></div>
+                        </div>
+                        <div className="summary-card danger">
+                            <div className="summary-label">Total Objects</div>
+                            <div className="summary-value">{totalObjects}</div>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 20 }}>Status Distribution</h3>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Count</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {STATUSES.map(status => (
+                                    <tr key={status}>
+                                        <td>
+                                            <span className={`status-badge status-${status.toLowerCase().replace(' ', '-')}`}>
+                                                {status}
+                                            </span>
+                                        </td>
+                                        <td>{statusCounts[status]}</td>
+                                        <td>{Math.round((statusCounts[status] / totalCRs) * 100)}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 20 }}>Object Type Usage</h3>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Object Type</th>
+                                    <th>Count</th>
+                                    <th>% of Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Object.entries(objectTypeCounts)
+                                    .sort((a, b) => b[1] - a[1])
+                                    .map(([type, count]) => (
+                                        <tr key={type}>
+                                            <td>{type}</td>
+                                            <td>{count}</td>
+                                            <td>{Math.round((count / totalObjects) * 100)}%</td>
+                                        </tr>
+                                    ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 20 }}>Recent CRs</h3>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>CR Number</th>
+                                    <th>Title</th>
+                                    <th>Client</th>
+                                    <th>Status</th>
+                                    <th>Effort</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {crs.slice(-10).reverse().map(cr => {
+                                    const efforts = calculateEfforts(cr.objects || [], cr.overrides || {});
+                                    return (
+                                        <tr key={cr.id}>
+                                            <td>CR-{cr.crNumber}</td>
+                                            <td>{cr.title}</td>
+                                            <td>{cr.clientName}</td>
+                                            <td>
+                                                <span className={`status-badge status-${cr.status.toLowerCase().replace(' ', '-')}`}>
+                                                    {cr.status}
+                                                </span>
+                                            </td>
+                                            <td>{efforts.total} hrs</td>
+                                            <td>{new Date(cr.createdDate).toLocaleDateString()}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        function ProjectSummary({ crs }) {
+            // Group CRs by project
+            const projectGroups = crs.reduce((groups, cr) => {
+                const projectName = cr.projectName || 'Unassigned';
+                if (!groups[projectName]) {
+                    groups[projectName] = [];
+                }
+                groups[projectName].push(cr);
+                return groups;
+            }, {});
+
+            const calculateProjectEfforts = (projectCrs) => {
+                return projectCrs.reduce((total, cr) => {
+                    const crEfforts = calculateEfforts(cr.objects || [], cr.overrides || {});
+                    return {
+                        development: total.development + crEfforts.development,
+                        unitTesting: total.unitTesting + crEfforts.unitTesting,
+                        sit: total.sit + crEfforts.sit,
+                        uat: total.uat + crEfforts.uat,
+                        requirements: total.requirements + crEfforts.requirements,
+                        documentation: total.documentation + crEfforts.documentation,
+                        migration: total.migration + crEfforts.migration,
+                        hypercare: total.hypercare + crEfforts.hypercare,
+                        contingency: total.contingency + crEfforts.contingency,
+                        total: total.total + crEfforts.total,
+                        objects: total.objects + (cr.objects?.length || 0)
+                    };
+                }, {
+                    development: 0, unitTesting: 0, sit: 0, uat: 0, requirements: 0,
+                    documentation: 0, migration: 0, hypercare: 0, contingency: 0,
+                    total: 0, objects: 0
+                });
+            };
+
+            const formatDecimal = (num) => Math.round(num * 10) / 10;
+
+            return (
+                <div className="content-card">
+                    <h2 style={{ marginBottom: 20 }}>🏗️ Project Summary</h2>
+                    <p style={{ color: '#7f8c8d', marginBottom: 30 }}>
+                        Overview of effort distribution across projects and clients
+                    </p>
+
+                    {Object.keys(projectGroups).length === 0 ? (
+                        <div className="empty-state">
+                            <div className="empty-state-icon">📊</div>
+                            <div className="empty-state-text">No projects found</div>
+                            <p>Create some CRs with project names to see project summaries here.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gap: 30 }}>
+                            {Object.entries(projectGroups).map(([projectName, projectCrs]) => {
+                                const efforts = calculateProjectEfforts(projectCrs);
+                                const completedCrs = projectCrs.filter(cr => cr.status === 'Completed').length;
+                                const totalCrs = projectCrs.length;
+
+                                return (
+                                    <div key={projectName} className="object-card" style={{ borderLeft: '4px solid #1e88e5' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 20 }}>
+                                            <div>
+                                                <h3 style={{ marginBottom: 5 }}>{projectName}</h3>
+                                                <p style={{ fontSize: 14, color: '#7f8c8d' }}>
+                                                    {totalCrs} CR{totalCrs !== 1 ? 's' : ''} • 
+                                                    {completedCrs} completed • 
+                                                    {efforts.objects} configuration objects
+                                                </p>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div style={{ fontSize: 24, fontWeight: 700, color: '#1e88e5' }}>
+                                                    {efforts.total} <span style={{ fontSize: 16 }}>hrs</span>
+                                                </div>
+                                                <div style={{ fontSize: 12, color: '#95a5a6' }}>
+                                                    {formatDecimal(efforts.total / 8)} days • {formatDecimal(efforts.total / 40)} weeks
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="summary-grid" style={{ marginBottom: 20 }}>
+                                            <div className="summary-card primary">
+                                                <div className="summary-label">Development</div>
+                                                <div className="summary-value">{efforts.development} <span className="summary-unit">hrs</span></div>
+                                            </div>
+                                            <div className="summary-card success">
+                                                <div className="summary-label">Testing</div>
+                                                <div className="summary-value">{efforts.unitTesting + efforts.sit + efforts.uat} <span className="summary-unit">hrs</span></div>
+                                            </div>
+                                            <div className="summary-card warning">
+                                                <div className="summary-label">Requirements</div>
+                                                <div className="summary-value">{efforts.requirements} <span className="summary-unit">hrs</span></div>
+                                            </div>
+                                            <div className="summary-card danger">
+                                                <div className="summary-label">Objects</div>
+                                                <div className="summary-value">{efforts.objects}</div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ marginTop: 20 }}>
+                                            <h4 style={{ marginBottom: 15 }}>Change Requests in this Project:</h4>
+                                            <div style={{ display: 'grid', gap: 10 }}>
+                                                {projectCrs.map(cr => (
+                                                    <div key={cr.id} style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        padding: 12,
+                                                        background: '#f8f9fa',
+                                                        borderRadius: 8,
+                                                        border: '1px solid #e0e0e0'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                                                                CR-{cr.crNumber}: {cr.title}
+                                                            </div>
+                                                            <div style={{ fontSize: 12, color: '#7f8c8d' }}>
+                                                                {cr.objects?.length || 0} objects • {calculateEfforts(cr.objects || [], cr.overrides || {}).total} hrs • 
+                                                                <span className={`status-badge status-${cr.status.toLowerCase().replace(' ', '-')}`}>
+                                                                    {cr.status}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontSize: 12, color: '#95a5a6' }}>
+                                                            {new Date(cr.createdDate).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function Templates({ onApplyTemplate }) {
+            const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+            const handleApplyTemplate = (template) => {
+                setSelectedTemplate(template);
+            };
+
+            const calculateTemplateEffort = (template) => {
+                let total = 0;
+                template.objects.forEach(obj => {
+                    total += EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+                });
+                return total;
+            };
+
+            return (
+                <div className="content-card">
+                    <h2 style={{ marginBottom: 20 }}>📑 Oracle Fusion HCM Seeded Configurations Templates</h2>
+                    <p style={{ color: '#7f8c8d', marginBottom: 30 }}>
+                        Use these pre-configured templates to quickly create common CR scenarios based on Oracle HCM implementation landscape
+                    </p>
+
+                    <div style={{ display: 'grid', gap: 20 }}>
+                        {TEMPLATES.map((template, idx) => {
+                            const effortEstimate = calculateTemplateEffort(template);
+                            return (
+                                <div key={idx} className="object-card" style={{ borderLeft: '4px solid #1e88e5' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 15 }}>
+                                        <div>
+                                            <h3 style={{ marginBottom: 5 }}>{template.name}</h3>
+                                            <p style={{ fontSize: 12, color: '#95a5a6', marginBottom: 10 }}>
+                                                {template.objects.length} configuration items • ~{effortEstimate} hrs estimated
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: 15 }}>
+                                        <strong style={{ fontSize: 13 }}>Configurations Included:</strong>
+                                        <div style={{ 
+                                            marginLeft: 20, 
+                                            marginTop: 10,
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                                            gap: 8
+                                        }}>
+                                            {template.objects.map((obj, i) => (
+                                                <div key={i} style={{
+                                                    background: '#f8f9fa',
+                                                    padding: '8px 12px',
+                                                    borderRadius: 6,
+                                                    fontSize: 13,
+                                                    border: '1px solid #e0e0e0'
+                                                }}>
+                                                    <span style={{ 
+                                                        background: '#1e88e5', 
+                                                        color: 'white',
+                                                        padding: '2px 6px',
+                                                        borderRadius: 3,
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                        marginRight: 8
+                                                    }}>
+                                                        {obj.type}
+                                                    </span>
+                                                    {obj.name}
+                                                    <span style={{ 
+                                                        fontSize: 11,
+                                                        color: '#7f8c8d',
+                                                        marginLeft: 8
+                                                    }}>
+                                                        ({obj.complexity})
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        className="btn btn-primary"
+                                        onClick={() => handleApplyTemplate(template)}
+                                    >
+                                        ✅ Apply This Template
+                                    </button>
+
+                                    {selectedTemplate === template && (
+                                        <div style={{
+                                            marginTop: 15,
+                                            padding: 15,
+                                            background: '#e8f5e9',
+                                            borderRadius: 8,
+                                            border: '2px solid #4caf50',
+                                            color: '#2e7d32',
+                                            fontSize: 13
+                                        }}>
+                                            ✓ Template selected! Create a new CR to use this template.
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        function CreateCRModal({ onClose, onCreate }) {
+            const [formData, setFormData] = useState({
+                crNumber: `${Date.now().toString().slice(-6)}`,
+                title: '',
+                clientName: '',
+                projectName: '',
+                description: ''
+            });
+            const [selectedTemplate, setSelectedTemplate] = useState(null);
+            const [templateInstances, setTemplateInstances] = useState(1);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (formData.title && formData.clientName) {
+                    let objects = [];
+                    if (selectedTemplate) {
+                        // Create multiple instances of template objects
+                        for (let i = 0; i < templateInstances; i++) {
+                            selectedTemplate.objects.forEach(obj => {
+                                objects.push({
+                                    ...obj,
+                                    id: `${obj.type}_${obj.name}_${i}_${Date.now()}_${Math.random()}`,
+                                    instance: i + 1,
+                                    templateName: selectedTemplate.name
+                                });
+                            });
+                        }
+                    }
+                    
+                    const crData = {
+                        ...formData,
+                        objects: objects,
+                        templateApplied: selectedTemplate ? selectedTemplate.name : null,
+                        templateInstances: selectedTemplate ? templateInstances : 1
+                    };
+                    onCreate(crData);
+                    onClose();
+                }
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div className="modal-header">Create New Change Request</div>
+                        
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label className="form-label">CR Number</label>
+                                <input 
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.crNumber}
+                                    onChange={(e) => setFormData({...formData, crNumber: e.target.value})}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">CR Title *</label>
+                                <input 
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                    placeholder="e.g., Time Entry Setup for Admin Group"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Client/Project Name *</label>
+                                <input 
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.clientName}
+                                    onChange={(e) => setFormData({...formData, clientName: e.target.value})}
+                                    placeholder="e.g., Acme Corporation"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Project Name *</label>
+                                <input 
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.projectName}
+                                    onChange={(e) => setFormData({...formData, projectName: e.target.value})}
+                                    placeholder="e.g., HCM Implementation Phase 1"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Description (Optional)</label>
+                                <textarea 
+                                    className="form-textarea"
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    placeholder="Brief description of the change request..."
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" style={{ marginBottom: 15 }}>Apply Seeded Configuration Template (Optional)</label>
+                                <select 
+                                    className="form-select"
+                                    value={selectedTemplate ? TEMPLATES.indexOf(selectedTemplate) : ''}
+                                    onChange={(e) => {
+                                        const idx = e.target.value;
+                                        setSelectedTemplate(idx ? TEMPLATES[parseInt(idx)] : null);
+                                    }}
+                                >
+                                    <option value="">-- None (Start with empty CR) --</option>
+                                    {TEMPLATES.map((template, idx) => (
+                                        <option key={idx} value={idx}>
+                                            {template.name} ({template.objects.length} items)
+                                        </option>
+                                    ))}
+                                </select>
+                                {selectedTemplate && (
+                                    <div style={{
+                                        marginTop: 10,
+                                        padding: 10,
+                                        background: '#e3f2fd',
+                                        borderRadius: 6,
+                                        fontSize: 12,
+                                        color: '#0d47a1',
+                                        border: '1px solid #1e88e5'
+                                    }}>
+                                        ✓ {selectedTemplate.objects.length} configuration items will be added to this CR
+                                    </div>
+                                )}
+                            </div>
+
+                            {selectedTemplate && (
+                                <div className="form-group">
+                                    <label className="form-label">Number of Template Instances</label>
+                                    <input 
+                                        type="number"
+                                        className="form-input"
+                                        value={templateInstances}
+                                        onChange={(e) => setTemplateInstances(Math.max(1, parseInt(e.target.value) || 1))}
+                                        min="1"
+                                        placeholder="How many instances of this template do you need?"
+                                    />
+                                    <div style={{
+                                        marginTop: 5,
+                                        fontSize: 12,
+                                        color: '#7f8c8d'
+                                    }}>
+                                        Total objects: {selectedTemplate.objects.length * templateInstances} • 
+                                        Estimated effort: ~{(() => {
+                                            let total = 0;
+                                            selectedTemplate.objects.forEach(obj => {
+                                                total += EFFORT_MATRIX[obj.type]?.[obj.complexity] || 0;
+                                            });
+                                            return total * templateInstances;
+                                        })()} hrs
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                                    Cancel
+                                </button>
+                                <button type="submit" className="btn btn-primary">
+                                    Create CR {selectedTemplate && '+ Apply Template'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
