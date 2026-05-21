@@ -497,6 +497,10 @@
             background: linear-gradient(135deg, #ffa726 0%, #f57c00 100%);
         }
 
+        .summary-card.info {
+            background: linear-gradient(135deg, #26c6da 0%, #00838f 100%);
+        }
+
         .summary-card.danger {
             background: linear-gradient(135deg, #ef5350 0%, #c62828 100%);
         }
@@ -723,6 +727,19 @@
         const OBJECT_TYPES = Object.keys(EFFORT_MATRIX);
         const COMPLEXITY_LEVELS = ['simple', 'medium', 'complex', 'very-complex'];
         const STATUSES = ['Draft', 'In Review', 'Approved', 'Completed'];
+        const CURRENCIES = ['USD', 'GBP', 'AUD', 'EUR'];
+        const DEFAULT_RESOURCE_TYPES = [
+            'Project Manager',
+            'Solution Architect',
+            'Senior Consultant',
+            'Lead Consultant',
+            'Associate Consultant',
+            'Data Migration Specialist',
+            'OIC Consultant',
+            'Report Specialist',
+            'AI Analyst'
+        ];
+        const CONSULTANT_TYPES = [...DEFAULT_RESOURCE_TYPES];
 
         const USERS = [
             { id: 'architect_absence', name: 'Architect - Absence', role: 'Architect', projects: ['Absence Management'] },
@@ -1036,6 +1053,16 @@
                 const allUsers = Storage.load('users', DEFAULT_USERS);
                 return storedUser && Array.isArray(storedUser.projects) ? storedUser : allUsers[0];
             });
+            const [resourceTypes, setResourceTypes] = useState(() => Storage.load('resourceTypes', DEFAULT_RESOURCE_TYPES));
+            const [rateData, setRateData] = useState(() => {
+                const saved = Storage.load('rateData');
+                if (saved) return saved;
+                const blank = {};
+                DEFAULT_RESOURCE_TYPES.forEach(type => {
+                    blank[type] = CURRENCIES.reduce((acc, cur) => ({ ...acc, [cur]: '' }), {});
+                });
+                return blank;
+            });
 
             const visibleCRs = crs.filter(cr => {
                 // Super Admin can see all CRs
@@ -1055,6 +1082,38 @@
             useEffect(() => {
                 Storage.save('users', users);
             }, [users]);
+
+            useEffect(() => {
+                Storage.save('resourceTypes', resourceTypes);
+            }, [resourceTypes]);
+
+            useEffect(() => {
+                let updated = false;
+                const syncedRates = { ...rateData };
+
+                resourceTypes.forEach(type => {
+                    if (!syncedRates[type]) {
+                        syncedRates[type] = CURRENCIES.reduce((acc, cur) => ({ ...acc, [cur]: '' }), {});
+                        updated = true;
+                    } else {
+                        CURRENCIES.forEach(currency => {
+                            if (!Object.prototype.hasOwnProperty.call(syncedRates[type], currency)) {
+                                syncedRates[type][currency] = '';
+                                updated = true;
+                            }
+                        });
+                    }
+                });
+
+                if (updated) {
+                    setRateData(syncedRates);
+                }
+            }, [resourceTypes]);
+
+            useEffect(() => {
+                Storage.save('rateData', rateData);
+            }, [rateData]);
+
             useEffect(() => {
                 if (selectedCR && !visibleCRs.some(cr => cr.id === selectedCR.id)) {
                     setSelectedCR(null);
@@ -1084,6 +1143,7 @@
                     objects: objects,
                     overrides: {},
                     notes: '',
+                    resourceAllocation: [],
                     templateApplied: crData.templateApplied || null,
                     templateInstances: crData.templateInstances || 1
                 };
@@ -1152,6 +1212,14 @@
                                 📊 Summary
                             </button>
                         )}
+                        {selectedCR && (
+                            <button 
+                                className={`nav-tab ${activeTab === 'costing' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('costing')}
+                            >
+                                💰 Cost Allocation
+                            </button>
+                        )}
                         <button 
                             className={`nav-tab ${activeTab === 'projects' ? 'active' : ''}`}
                             onClick={() => setActiveTab('projects')}
@@ -1170,6 +1238,12 @@
                         >
                             📑 Templates
                         </button>
+                        <button 
+                            className={`nav-tab ${activeTab === 'rates' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('rates')}
+                        >
+                            💲 Rates
+                        </button>
                     </div>
 
                     {activeTab === 'crs' && (
@@ -1187,8 +1261,11 @@
                     {activeTab === 'edit' && selectedCR && (
                         <CREditor 
                             cr={selectedCR}
+                            rateData={rateData}
+                            resourceTypes={resourceTypes}
                             onUpdate={(updates) => updateCR(selectedCR.id, updates)}
                             onViewSummary={() => setActiveTab('summary')}
+                            onViewCostAllocation={() => setActiveTab('costing')}
                         />
                     )}
 
@@ -1199,18 +1276,53 @@
                         />
                     )}
 
+                    {activeTab === 'costing' && selectedCR && (
+                        <CostAllocation 
+                            cr={selectedCR}
+                            rateData={rateData}
+                            resourceAllocation={selectedCR.resourceAllocation}
+                            resourceSchedule={selectedCR.resourceSchedule}
+                        />
+                    )}
+
                     {activeTab === 'analytics' && (
                         <Analytics crs={visibleCRs} />
                     )}
 
                     {activeTab === 'projects' && (
-                        <ProjectSummary crs={visibleCRs} />
+                        <ProjectSummary crs={visibleCRs} rateData={rateData} />
                     )}
 
                     {activeTab === 'templates' && (
                         <Templates 
                             onApplyTemplate={(template) => {
                                 openModal('create-from-template');
+                            }}
+                        />
+                    )}
+
+                    {activeTab === 'rates' && (
+                        <Rates 
+                            resourceTypes={resourceTypes}
+                            rateData={rateData}
+                            onUpdateRate={(type, currency, value) => {
+                                setRateData({
+                                    ...rateData,
+                                    [type]: {
+                                        ...rateData[type],
+                                        [currency]: value
+                                    }
+                                });
+                            }}
+                            onAddResourceType={(type) => {
+                                if (!type || resourceTypes.includes(type)) return;
+                                const normalized = type.trim();
+                                const newTypes = [...resourceTypes, normalized];
+                                setResourceTypes(newTypes);
+                                setRateData({
+                                    ...rateData,
+                                    [normalized]: CURRENCIES.reduce((acc, cur) => ({ ...acc, [cur]: '' }), {})
+                                });
                             }}
                         />
                     )}
@@ -1293,9 +1405,12 @@
             );
         }
 
-        function CREditor({ cr, onUpdate, onViewSummary }) {
+        function CREditor({ cr, rateData, resourceTypes, onUpdate, onViewSummary, onViewCostAllocation }) {
             const [objects, setObjects] = useState(cr.objects || []);
             const [overrides, setOverrides] = useState(cr.overrides || {});
+            const [resourceAllocation, setResourceAllocation] = useState(cr.resourceAllocation || []);
+            const [showSchedule, setShowSchedule] = useState(false);
+            const [resourceSchedule, setResourceSchedule] = useState(cr.resourceSchedule || null);
             const [selectedObjectId, setSelectedObjectId] = useState(objects[0]?.id || null);
 
             useEffect(() => {
@@ -1307,6 +1422,14 @@
                     setSelectedObjectId(objects[0].id);
                 }
             }, [objects, selectedObjectId]);
+
+            useEffect(() => {
+                setResourceAllocation(cr.resourceAllocation || []);
+            }, [cr.resourceAllocation]);
+
+            useEffect(() => {
+                setResourceSchedule(cr.resourceSchedule || null);
+            }, [cr.resourceSchedule]);
 
             const addObject = () => {
                 const newObject = {
@@ -1341,23 +1464,115 @@
 
             const updateOverride = (field, value) => {
                 const parsedValue = parseInt(value, 10);
-            const newValue = Number.isNaN(parsedValue) ? null : parsedValue;
-            const newOverrides = { ...overrides, [field]: newValue };
+                const newValue = Number.isNaN(parsedValue) ? null : parsedValue;
+                const newOverrides = { ...overrides, [field]: newValue };
                 setOverrides(newOverrides);
                 onUpdate({ overrides: newOverrides });
             };
 
+            const toggleResourceType = (type) => {
+                const existing = resourceAllocation.find(item => item.type === type);
+                let nextAllocation;
+                if (existing) {
+                    nextAllocation = resourceAllocation.filter(item => item.type !== type);
+                } else {
+                    nextAllocation = [...resourceAllocation, { type, weeks: null, headcount: 1, notes: '' }];
+                }
+                setResourceAllocation(nextAllocation);
+                onUpdate({ resourceAllocation: nextAllocation });
+            };
+
+            const updateResourceAllocation = (type, field, value) => {
+                const nextAllocation = resourceAllocation.map(item => {
+                    if (item.type !== type) return item;
+                    if (field === 'weeks') {
+                        const parsedValue = parseFloat(value);
+                        return { ...item, weeks: Number.isNaN(parsedValue) ? null : parsedValue };
+                    }
+                    if (field === 'headcount') {
+                        const parsedValue = parseInt(value, 10);
+                        return { ...item, headcount: Number.isNaN(parsedValue) || parsedValue < 1 ? null : parsedValue };
+                    }
+                    return { ...item, [field]: value };
+                });
+                setResourceAllocation(nextAllocation);
+                onUpdate({ resourceAllocation: nextAllocation });
+            };
+
+            const buildScheduleRows = (allocations, weeks) => {
+                const rows = [];
+                allocations.forEach(item => {
+                    const count = Math.max(1, Math.floor(Number(item.headcount) || 1));
+                    for (let idx = 1; idx <= count; idx++) {
+                        rows.push({
+                            id: `${item.type.replace(/\s+/g, '_')}_${idx}`,
+                            label: count > 1 ? `${item.type} #${idx}` : item.type,
+                            type: item.type,
+                            allocations: Array.from({ length: weeks }, () => 0)
+                        });
+                    }
+                });
+                return rows;
+            };
+
+            const buildEmptySchedule = (weeks, allocations) => ({ weeks, rows: buildScheduleRows(allocations, weeks) });
+
+            const preserveScheduleValues = (currentRows, nextRows, weeks) => {
+                const preserved = nextRows.map(row => {
+                    const existing = currentRows.find(r => r.id === row.id);
+                    if (!existing) return row;
+                    const allocations = Array.from({ length: weeks }, (_, idx) => {
+                        return idx < existing.allocations.length ? existing.allocations[idx] : 0;
+                    });
+                    return { ...row, allocations };
+                });
+                return preserved;
+            };
+
+            const updateScheduleCell = (rowIndex, weekIndex, value) => {
+                const parsed = parseFloat(value);
+                let val = Number.isNaN(parsed) ? 0 : parsed;
+                // Enforce weekly FTE bounds: 0 <= val <= 1
+                if (val < 0) val = 0;
+                if (val > 1) val = 1;
+                const next = {
+                    ...resourceSchedule,
+                    rows: resourceSchedule.rows.map((r, idx) => idx === rowIndex ? { ...r, allocations: r.allocations.map((a, wIdx) => wIdx === weekIndex ? val : a) } : r)
+                };
+                setResourceSchedule(next);
+                onUpdate({ resourceSchedule: next });
+            };
+
             const efforts = calculateEfforts(objects, overrides);
             const selectedObject = objects.find(obj => obj.id === selectedObjectId) || objects[0] || null;
+            const scheduleEnabled = resourceAllocation.length > 0 && resourceAllocation.every(item => Number.isFinite(Number(item.headcount)) && Number(item.headcount) > 0);
+            const costAllocationEnabled = resourceSchedule?.rows?.length > 0 && resourceSchedule.rows.some(row => row.allocations.some(value => parseFloat(value) > 0));
+
+            useEffect(() => {
+                const devWeeks = efforts.development ? Math.max(1, Math.ceil(efforts.development / 40)) : 1;
+                const allocations = resourceAllocation || [];
+                if (!resourceSchedule) {
+                    const built = buildEmptySchedule(devWeeks, allocations);
+                    setResourceSchedule(built);
+                    onUpdate({ resourceSchedule: built });
+                } else {
+                    const next = buildEmptySchedule(devWeeks, allocations);
+                    const preservedRows = preserveScheduleValues(resourceSchedule.rows || [], next.rows, devWeeks);
+                    const normalized = { ...resourceSchedule, weeks: devWeeks, rows: preservedRows };
+                    setResourceSchedule(normalized);
+                    onUpdate({ resourceSchedule: normalized });
+                }
+            }, [resourceAllocation, efforts.development]);
 
             return (
                 <div className="content-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+                    {/* Header section with title and action buttons */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                         <div>
                             <h2>{cr.title}</h2>
                             <p style={{ color: '#7f8c8d', marginTop: 5 }}>CR-{cr.crNumber} • {cr.clientName}</p>
                         </div>
-                        <div className="action-buttons">
+                        <div className="action-buttons" style={{ gap: 12, flexWrap: 'nowrap' }}>
                             <select 
                                 className="form-select" 
                                 value={cr.status}
@@ -1370,6 +1585,22 @@
                             </select>
                             <button className="btn btn-success" onClick={onViewSummary}>
                                 📊 View Summary
+                            </button>
+                            <button
+                                className={`btn ${scheduleEnabled ? 'btn-primary' : 'btn-secondary'}`}
+                                onClick={() => scheduleEnabled && setShowSchedule(s => !s)}
+                                disabled={!scheduleEnabled}
+                                style={{ opacity: scheduleEnabled ? 1 : 0.65, cursor: scheduleEnabled ? 'pointer' : 'not-allowed' }}
+                            >
+                                🗓️ Schedule
+                            </button>
+                            <button
+                                className={`btn ${costAllocationEnabled ? 'btn-success' : 'btn-secondary'}`}
+                                onClick={() => costAllocationEnabled && onViewCostAllocation()}
+                                disabled={!costAllocationEnabled}
+                                style={{ opacity: costAllocationEnabled ? 1 : 0.65, cursor: costAllocationEnabled ? 'pointer' : 'not-allowed' }}
+                            >
+                                💰 Cost Allocation
                             </button>
                         </div>
                     </div>
@@ -1449,13 +1680,13 @@
                                 onChange={(val) => updateOverride('unitTesting', val)}
                             />
                             <EffortOverride 
-                                label="SIT"
+                                label="System Integration Testing"
                                 suggested={Math.round(efforts.development * 0.45)}
                                 value={overrides.sit}
                                 onChange={(val) => updateOverride('sit', val)}
                             />
                             <EffortOverride 
-                                label="UAT"
+                                label="User Acceptance Testing"
                                 suggested={Math.round(efforts.development * 0.30)}
                                 value={overrides.uat}
                                 onChange={(val) => updateOverride('uat', val)}
@@ -1485,13 +1716,192 @@
                                 onChange={(val) => updateOverride('hypercare', val)}
                             />
                             <EffortOverride 
-                                label="Contingency (10%)"
+                                label="Contingency"
                                 suggested={Math.round((efforts.development + efforts.unitTesting + efforts.sit + efforts.uat + efforts.requirements + efforts.documentation + efforts.migration + efforts.hypercare) * 0.10)}
                                 value={overrides.contingency}
                                 onChange={(val) => updateOverride('contingency', val)}
                             />
                         </div>
                     </div>
+
+                    {/* Select Consultant Types — between Effort Overrides and Resource Allocation */}
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 12 }}>Select Consultant Types</h3>
+                        <div style={{
+                            background: '#f8f9fa',
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 8,
+                            padding: 20
+                        }}>
+                            <p style={{ fontSize: 12, color: '#7f8c8d', marginBottom: 14 }}>Choose one or more resource types for this CR</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                                {CONSULTANT_TYPES.map(type => {
+                                    const selected = resourceAllocation.find(r => r.type === type);
+                                    return (
+                                        <label key={type} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 10,
+                                            padding: 10,
+                                            background: selected ? '#e3f2fd' : 'white',
+                                            border: `1px solid ${selected ? '#1e88e5' : '#e0e0e0'}`,
+                                            borderRadius: 6,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease'
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!selected}
+                                                onChange={() => toggleResourceType(type)}
+                                                style={{ width: 18, height: 18, cursor: 'pointer' }}
+                                            />
+                                            <span style={{ fontSize: 14, fontWeight: selected ? 600 : 500, color: selected ? '#1e88e5' : '#2c3e50' }}>{type}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 40 }}>
+                        <h3 style={{ marginBottom: 10 }}>Resource Allocation</h3>
+                        <p style={{ color: '#7f8c8d', marginBottom: 20 }}>
+                            Based on {Math.round((efforts.development / 40) * 100) / 100 || 0} development weeks, select the consultant types and headcount. Enter weekly FTE per resource in the Resource Schedule section below.
+                        </p>
+                        <div className="effort-grid">
+                            {CONSULTANT_TYPES.map(type => {
+                                const allocation = resourceAllocation.find(item => item.type === type);
+                                return (
+                                    <div key={type} className="effort-item" style={{ padding: '18px' }}>
+                                        <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!allocation}
+                                                onChange={() => toggleResourceType(type)}
+                                            />
+                                            {type}
+                                        </label>
+                                        {allocation && (
+                                            <>
+                                                <div className="form-group" style={{ marginBottom: 12 }}>
+                                                    <label className="form-label">Headcount</label>
+                                                    <input
+                                                        type="number"
+                                                        className="form-input"
+                                                        value={allocation.headcount ?? ''}
+                                                        onChange={(e) => {
+                                                            const v = parseInt(e.target.value, 10);
+                                                            updateResourceAllocation(type, 'headcount', Number.isNaN(v) ? null : v);
+                                                        }}
+                                                        min="1"
+                                                        step="1"
+                                                        placeholder="No. of people"
+                                                    />
+                                                </div>
+                                                <div className="form-group" style={{ marginBottom: 12 }}>
+                                                    <label className="form-label">Base Rate (from Rate tab)</label>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                                                        {CURRENCIES.map(currency => {
+                                                            const rate = rateData[type]?.[currency];
+                                                            return (
+                                                                <div key={currency} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#334155' }}>
+                                                                    <span>{currency}</span>
+                                                                    <strong>{rate ? Number(rate).toFixed(2) : '—'}</strong>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                <div className="form-group">
+                                                    <label className="form-label">Notes (optional)</label>
+                                                    <input
+                                                        type="text"
+                                                        className="form-input"
+                                                        value={allocation.notes || ''}
+                                                        onChange={(e) => updateResourceAllocation(type, 'notes', e.target.value)}
+                                                        placeholder="Example: 50% allocation across 20 weeks"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Totals row */}
+                        {resourceAllocation.length > 0 && (() => {
+                            const totalHeadcount = resourceAllocation.reduce((s, a) => s + (parseInt(a.headcount, 10) || 0), 0);
+                            const totalScheduledFTE = resourceSchedule?.rows?.reduce((s, row) => s + row.allocations.reduce((sub, value) => sub + value, 0), 0) || 0;
+                            return (
+                                <div style={{
+                                    marginTop: 20,
+                                    padding: '14px 20px',
+                                    background: '#e3f2fd',
+                                    border: '2px solid #1e88e5',
+                                    borderRadius: 8,
+                                    display: 'flex',
+                                    gap: 40,
+                                    flexWrap: 'wrap',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{ fontWeight: 700, fontSize: 14, color: '#0d47a1', minWidth: 120 }}>📊 Totals</div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 11, color: '#546e7a', marginBottom: 2 }}>Total Headcount</div>
+                                        <div style={{ fontWeight: 700, fontSize: 18, color: '#1e88e5' }}>{totalHeadcount || '—'}</div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+
+                    {showSchedule && (
+                        <div style={{ marginTop: 30 }}>
+                            <h3 style={{ marginBottom: 10 }}>Resource Schedule</h3>
+                            <p style={{ color: '#7f8c8d', marginBottom: 12 }}>
+                                Rows represent resource instances created from headcount. Columns represent development weeks (W1, W2...). Enter allocation per resource per week.
+                            </p>
+                            {(!resourceAllocation || resourceAllocation.length === 0) ? (
+                                <div className="empty-state" style={{ padding: 20 }}>
+                                    <div style={{ fontSize: 20, marginBottom: 8 }}>No resources selected</div>
+                                    <div style={{ color: '#7f8c8d' }}>Please select one or more consultant types above to build the schedule.</div>
+                                </div>
+                            ) : (
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table className="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Resource / Role</th>
+                                                {Array.from({ length: resourceSchedule?.weeks || 1 }, (_, i) => (
+                                                    <th key={i}>W{i + 1}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {resourceSchedule && resourceSchedule.rows.map((row, rowIndex) => (
+                                                <tr key={row.id || rowIndex}>
+                                                    <td>{row.label}</td>
+                                                    {row.allocations.map((value, weekIndex) => (
+                                                        <td key={weekIndex} style={{ minWidth: 120 }}>
+                                                            <input
+                                                                type="number"
+                                                                className="form-input"
+                                                                value={value}
+                                                                onChange={(e) => updateScheduleCell(rowIndex, weekIndex, e.target.value)}
+                                                                step="0.25"
+                                                                min="0"
+                                                                max="1"
+                                                            />
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div style={{ marginTop: 40 }}>
                         <h3 style={{ marginBottom: 10 }}>Notes</h3>
@@ -1627,25 +2037,39 @@
                     chartInstance.current = new Chart(ctx, {
                         type: 'doughnut',
                         data: {
-                            labels: ['Development', 'Testing', 'Requirements', 'Documentation', 'Migration', 'Hypercare', 'Contingency'],
+                            labels: [
+                                'Requirement Gathering',
+                                'Documentation',
+                                'Development',
+                                'Unit Testing',
+                                'System Integration Testing',
+                                'User Acceptance Testing',
+                                'Production Migration',
+                                'Hypercare',
+                                'Contingency'
+                            ],
                             datasets: [{
                                 data: [
-                                    efforts.development,
-                                    efforts.unitTesting + efforts.sit + efforts.uat,
                                     efforts.requirements,
                                     efforts.documentation,
+                                    efforts.development,
+                                    efforts.unitTesting,
+                                    efforts.sit,
+                                    efforts.uat,
                                     efforts.migration,
                                     efforts.hypercare,
                                     efforts.contingency
                                 ],
                                 backgroundColor: [
-                                    '#1e88e5',
-                                    '#43a047',
-                                    '#ffa726',
-                                    '#ab47bc',
-                                    '#26c6da',
-                                    '#ef5350',
-                                    '#78909c'
+                                    '#FFA726',
+                                    '#8E24AA',
+                                    '#1E88E5',
+                                    '#43A047',
+                                    '#26C6DA',
+                                    '#66BB6A',
+                                    '#00838F',
+                                    '#EF5350',
+                                    '#78909C'
                                 ]
                             }]
                         },
@@ -1699,15 +2123,15 @@
                 const statusBg = statusColor[cr.status] || '#546E7A';
 
                 const effortItems = [
+                    ['Requirement Gathering', efforts.requirements, '#FFA726', '#FFF3E0'],
+                    ['Documentation', efforts.documentation, '#8E24AA', '#F3E5F5'],
                     ['Development', efforts.development, '#1565C0', '#E3F2FD'],
-                    ['Unit Testing', efforts.unitTesting, '#2E7D32', '#E8F5E9'],
-                    ['SIT', efforts.sit, '#2E7D32', '#F1F8E9'],
-                    ['UAT', efforts.uat, '#2E7D32', '#E8F5E9'],
-                    ['Requirements Analysis', efforts.requirements, '#E65100', '#FFF3E0'],
-                    ['Documentation', efforts.documentation, '#6A1B9A', '#F3E5F5'],
+                    ['Unit Testing', efforts.unitTesting, '#43A047', '#E8F5E9'],
+                    ['System Integration Testing', efforts.sit, '#26C6DA', '#E0F7FA'],
+                    ['User Acceptance Testing', efforts.uat, '#66BB6A', '#E8F5E9'],
                     ['Production Migration', efforts.migration, '#00838F', '#E0F7FA'],
-                    ['Hypercare Support', efforts.hypercare, '#AD1457', '#FCE4EC'],
-                    ['Contingency (10%)', efforts.contingency, '#546E7A', '#ECEFF1']
+                    ['Hypercare', efforts.hypercare, '#EF5350', '#FCE4EC'],
+                    ['Contingency', efforts.contingency, '#546E7A', '#ECEFF1']
                 ];
 
                 const testingTotal = efforts.unitTesting + efforts.sit + efforts.uat;
@@ -1816,7 +2240,7 @@
   <col style="width:175px"/><col style="width:175px"/><col style="width:175px"/><col style="width:175px"/>
   <tr>
     <td style="background:#1565C0;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #0D47A1;font-size:10pt;">Development</td>
-    <td style="background:#2E7D32;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #1B5E20;font-size:10pt;">Testing (UT+SIT+UAT)</td>
+    <td style="background:#2E7D32;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #1B5E20;font-size:10pt;">Testing (Unit Testing + System Integration Testing + User Acceptance Testing)</td>
     <td style="background:#E65100;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #BF360C;font-size:10pt;">Other Activities</td>
     <td style="background:#C74634;color:#fff;font-weight:bold;text-align:center;padding:10px 6px;border:2px solid #8B2A1A;font-size:10pt;">Grand Total</td>
   </tr>
@@ -1934,6 +2358,70 @@
 
 <br/>
 
+${cr.resourceAllocation && cr.resourceAllocation.length > 0 ? `
+<!-- ════════════════════════════════════════════════
+     RESOURCE ALLOCATION
+     ════════════════════════════════════════════════ -->
+<table style="width:700px;">
+  <col style="width:200px"/><col style="width:120px"/><col style="width:90px"/><col style="width:220px"/>
+  <tr><td class="sec-heading" colspan="4">👥 Consultant Resource Allocation</td></tr>
+  <tr>
+    <td class="col-hdr-left">Consultant Type</td>
+    <td class="col-hdr">Scheduled FTE</td>
+    <td class="col-hdr">Headcount</td>
+    <td class="col-hdr-left">Notes</td>
+  </tr>
+  ${(() => {
+    const scheduleFTEByType = (cr.resourceSchedule?.rows || []).reduce((acc, row) => {
+      acc[row.type] = (acc[row.type] || 0) + row.allocations.reduce((sub, value) => sub + (parseFloat(value) || 0), 0);
+      return acc;
+    }, {});
+    return cr.resourceAllocation.map((item, i) => {
+      const scheduledFTE = scheduleFTEByType[item.type] || 0;
+      const displayFTE = scheduledFTE > 0 ? scheduledFTE.toFixed(2) : '—';
+      const bg = i % 2 === 0 ? '#FFFFFF' : '#F5F8FF';
+      return `<tr>
+    <td style="background:${bg};font-size:10pt;padding:6px 10px;border:1px solid #E0E0E0;font-weight:600;">${item.type}</td>
+    <td style="background:${bg};font-size:10pt;text-align:center;padding:6px 10px;border:1px solid #E0E0E0;">${displayFTE}</td>
+    <td style="background:${bg};font-size:10pt;text-align:center;padding:6px 10px;border:1px solid #E0E0E0;">${item.headcount ?? '—'}</td>
+    <td style="background:${bg};font-size:10pt;padding:6px 10px;border:1px solid #E0E0E0;">${item.notes || ''}</td>
+  </tr>`;
+    }).join('');
+  })()}
+  ${(() => {
+    const totalScheduledFTE = (cr.resourceSchedule?.rows || []).reduce((s, row) => s + row.allocations.reduce((sub, value) => sub + (parseFloat(value) || 0), 0), 0).toFixed(2);
+    const th = cr.resourceAllocation.reduce((s, a) => s + (parseInt(a.headcount, 10) || 0), 0);
+    return `<tr>
+    <td style="background:#E3F2FD;font-size:10pt;padding:6px 10px;border:2px solid #1e88e5;font-weight:700;color:#0D47A1;">Total</td>
+    <td style="background:#E3F2FD;font-size:10pt;text-align:center;padding:6px 10px;border:2px solid #1e88e5;font-weight:700;color:#0D47A1;">${totalScheduledFTE}</td>
+    <td style="background:#E3F2FD;font-size:10pt;text-align:center;padding:6px 10px;border:2px solid #1e88e5;font-weight:700;color:#0D47A1;">${th || '—'}</td>
+  </tr>`;
+  })()}
+</table>
+
+${cr.resourceSchedule && cr.resourceSchedule.rows && cr.resourceSchedule.rows.length > 0 ? `
+<br/>
+<table style="width:700px; overflow-x:auto;">
+  <tr><td class="sec-heading" colspan="${(cr.resourceSchedule.weeks + 2)}">🗓️ Resource Schedule (FTE per Week)</td></tr>
+  <tr>
+    <td class="col-hdr" style="min-width:160px;">Resource</td>
+    ${Array.from({ length: cr.resourceSchedule.weeks }, (_, idx) => `<td class="col-hdr" style="min-width:100px;">W${idx + 1}</td>`).join('')}
+    <td class="col-hdr" style="background:#0A4D8C;min-width:80px;">Total FTE</td>
+  </tr>
+  ${cr.resourceSchedule.rows.map((row, i) => {
+    const total = row.allocations.reduce((s, value) => s + (parseFloat(value) || 0), 0);
+    const bg = i % 2 === 0 ? '#FFFFFF' : '#F5F8FF';
+    return `<tr>
+    <td style="background:${bg};font-size:10pt;text-align:left;padding:6px 8px;border:1px solid #E0E0E0;font-weight:700;">${row.label}</td>
+    ${row.allocations.map(value => `<td style="background:${bg};font-size:10pt;text-align:center;padding:6px 8px;border:1px solid #E0E0E0;">${value ?? 0}</td>`).join('')}
+    <td style="background:#E3F2FD;font-size:10pt;text-align:center;padding:6px 8px;border:1px solid #90CAF9;font-weight:700;color:#0D47A1;">${total.toFixed(2)}</td>
+  </tr>`;
+  }).join('')}
+</table>` : ''}
+` : ''}
+
+<br/>
+
 <!-- ════════════════════════════════════════════════
      ASSUMPTIONS & NOTES
      ════════════════════════════════════════════════ -->
@@ -1944,10 +2432,10 @@
     <td class="notes-label">Estimation Basis</td>
     <td class="notes-value">Based on Oracle Fusion HCM standard effort matrix with complexity-weighted hours per object type.</td>
   </tr>
-  <tr>
-    <td class="notes-label">Testing Ratios</td>
-    <td class="notes-value">Unit Testing: 35% of Dev • SIT: 45% of Dev • UAT: 30% of Dev</td>
-  </tr>
+    <tr>
+        <td class="notes-label">Testing Ratios</td>
+        <td class="notes-value">Unit Testing: 35% of Dev • System Integration Testing: 45% of Dev • User Acceptance Testing: 30% of Dev</td>
+    </tr>
   <tr>
     <td class="notes-label">Contingency</td>
     <td class="notes-value">10% buffer applied to total effort (excluding contingency) for risk and scope variation.</td>
@@ -2002,7 +2490,7 @@
 <table style="width:700px;">
   <tr>
     <td style="background:#F5F5F5;color:#AAAAAA;font-size:8pt;text-align:center;padding:6px;border:none;">
-      Generated by SMart Effort Estimator • Oracle Fusion HCM • ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} • CR-${cr.crNumber} — ${cr.clientName}
+      Generated by HCM EffortIQ • Oracle Fusion HCM • ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} • CR-${cr.crNumber} — ${cr.clientName}
     </td>
   </tr>
 </table>
@@ -2041,7 +2529,7 @@
                 doc.setFont(undefined, 'bold');
                 doc.setFontSize(16);
                 doc.setTextColor(0, 0, 0);
-                doc.text('SMart Effort Estimator - Oracle Fusion HCM', pageWidth / 2, yPosition, { align: 'center' });
+                doc.text('HCM EffortIQ - Oracle Fusion HCM', pageWidth / 2, yPosition, { align: 'center' });
                 
                 yPosition += 15;
                 
@@ -2136,14 +2624,14 @@
                 
                 // Effort data rows
                 const effortItems = [
+                    ['Requirement Gathering', efforts.requirements, formatDecimal(efforts.requirements / 8), formatDecimal(efforts.requirements / 40)],
+                    ['Documentation', efforts.documentation, formatDecimal(efforts.documentation / 8), formatDecimal(efforts.documentation / 40)],
                     ['Development', efforts.development, formatDecimal(efforts.development / 8), formatDecimal(efforts.development / 40)],
                     ['Unit Testing', efforts.unitTesting, formatDecimal(efforts.unitTesting / 8), formatDecimal(efforts.unitTesting / 40)],
-                    ['SIT', efforts.sit, formatDecimal(efforts.sit / 8), formatDecimal(efforts.sit / 40)],
-                    ['UAT', efforts.uat, formatDecimal(efforts.uat / 8), formatDecimal(efforts.uat / 40)],
-                    ['Requirements Analysis', efforts.requirements, formatDecimal(efforts.requirements / 8), formatDecimal(efforts.requirements / 40)],
-                    ['Documentation', efforts.documentation, formatDecimal(efforts.documentation / 8), formatDecimal(efforts.documentation / 40)],
+                    ['System Integration Testing', efforts.sit, formatDecimal(efforts.sit / 8), formatDecimal(efforts.sit / 40)],
+                    ['User Acceptance Testing', efforts.uat, formatDecimal(efforts.uat / 8), formatDecimal(efforts.uat / 40)],
                     ['Production Migration', efforts.migration, formatDecimal(efforts.migration / 8), formatDecimal(efforts.migration / 40)],
-                    ['Hypercare Support', efforts.hypercare, formatDecimal(efforts.hypercare / 8), formatDecimal(efforts.hypercare / 40)],
+                    ['Hypercare', efforts.hypercare, formatDecimal(efforts.hypercare / 8), formatDecimal(efforts.hypercare / 40)],
                     ['Contingency', efforts.contingency, formatDecimal(efforts.contingency / 8), formatDecimal(efforts.contingency / 40)]
                 ];
                 
@@ -2329,6 +2817,16 @@
                             </thead>
                             <tbody>
                                 <tr>
+                                    <td>Requirement Gathering</td>
+                                    <td>{efforts.requirements}</td>
+                                    <td>{Math.round((efforts.requirements / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
+                                    <td>Documentation</td>
+                                    <td>{efforts.documentation}</td>
+                                    <td>{Math.round((efforts.documentation / efforts.total) * 100)}%</td>
+                                </tr>
+                                <tr>
                                     <td>Development</td>
                                     <td>{efforts.development}</td>
                                     <td>{Math.round((efforts.development / efforts.total) * 100)}%</td>
@@ -2339,24 +2837,14 @@
                                     <td>{Math.round((efforts.unitTesting / efforts.total) * 100)}%</td>
                                 </tr>
                                 <tr>
-                                    <td>SIT</td>
+                                    <td>System Integration Testing</td>
                                     <td>{efforts.sit}</td>
                                     <td>{Math.round((efforts.sit / efforts.total) * 100)}%</td>
                                 </tr>
                                 <tr>
-                                    <td>UAT</td>
+                                    <td>User Acceptance Testing</td>
                                     <td>{efforts.uat}</td>
                                     <td>{Math.round((efforts.uat / efforts.total) * 100)}%</td>
-                                </tr>
-                                <tr>
-                                    <td>Requirements Analysis</td>
-                                    <td>{efforts.requirements}</td>
-                                    <td>{Math.round((efforts.requirements / efforts.total) * 100)}%</td>
-                                </tr>
-                                <tr>
-                                    <td>Documentation</td>
-                                    <td>{efforts.documentation}</td>
-                                    <td>{Math.round((efforts.documentation / efforts.total) * 100)}%</td>
                                 </tr>
                                 <tr>
                                     <td>Production Migration</td>
@@ -2364,7 +2852,7 @@
                                     <td>{Math.round((efforts.migration / efforts.total) * 100)}%</td>
                                 </tr>
                                 <tr>
-                                    <td>Hypercare Support</td>
+                                    <td>Hypercare</td>
                                     <td>{efforts.hypercare}</td>
                                     <td>{Math.round((efforts.hypercare / efforts.total) * 100)}%</td>
                                 </tr>
@@ -2417,6 +2905,48 @@
                         </table>
                     </div>
 
+                    {cr.resourceAllocation?.length > 0 && (
+                        <div style={{ marginTop: 40 }}>
+                            <h3 style={{ marginBottom: 20 }}>Consultant Resource Allocation</h3>
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Consultant Type</th>
+                                        <th>Scheduled FTE</th>
+                                        <th>Headcount</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {cr.resourceAllocation.map(item => {
+                                        const scheduleRows = (cr.resourceSchedule?.rows || []).filter(row => row.type === item.type);
+                                        const scheduledFTE = scheduleRows.reduce((s, row) => s + row.allocations.reduce((sub, value) => sub + (parseFloat(value) || 0), 0), 0);
+                                        return (
+                                            <tr key={item.type}>
+                                                <td>{item.type}</td>
+                                                <td>{scheduledFTE > 0 ? scheduledFTE.toFixed(2) : '-'}</td>
+                                                <td>{item.headcount ?? '-'}</td>
+                                                <td>{item.notes || '-'}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {(() => {
+                                        const totalHeadcount = cr.resourceAllocation.reduce((s, a) => s + (parseInt(a.headcount, 10) || 0), 0);
+                                        const totalScheduledFTE = (cr.resourceSchedule?.rows || []).reduce((s, row) => s + row.allocations.reduce((sub, value) => sub + (parseFloat(value) || 0), 0), 0);
+                                        return (
+                                            <tr style={{ background: '#e3f2fd', fontWeight: 700 }}>
+                                                <td style={{ color: '#0d47a1' }}>Total</td>
+                                                <td style={{ color: '#0d47a1' }}>{totalScheduledFTE.toFixed(2)}</td>
+                                                <td style={{ color: '#0d47a1' }}>{totalHeadcount || '—'}</td>
+                                                <td></td>
+                                            </tr>
+                                        );
+                                    })()}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
                     {cr.notes && (
                         <div style={{ marginTop: 40 }}>
                             <h3 style={{ marginBottom: 10 }}>Notes</h3>
@@ -2430,6 +2960,228 @@
                             </div>
                         </div>
                     )}
+                </div>
+            );
+        }
+
+        function CostAllocation({ cr, rateData, resourceAllocation, resourceSchedule }) {
+            const [selectedCurrency, setSelectedCurrency] = useState('USD');
+            const efforts = calculateEfforts(cr.objects || [], cr.overrides || {});
+            const HOURS_PER_WEEK = 40;
+
+            const calculateResourceCosts = () => {
+                if (!resourceAllocation || resourceAllocation.length === 0) {
+                    return { byPhase: {}, byResource: {}, summary: {} };
+                }
+
+                const phaseBreakdown = {
+                    development: efforts.development || 0,
+                    unitTesting: efforts.unitTesting || 0,
+                    sit: efforts.sit || 0,
+                    uat: efforts.uat || 0,
+                    requirements: efforts.requirements || 0,
+                    documentation: efforts.documentation || 0,
+                    migration: efforts.migration || 0,
+                    hypercare: efforts.hypercare || 0,
+                    contingency: efforts.contingency || 0
+                };
+
+                const totalEffortHours = Object.values(phaseBreakdown).reduce((s, h) => s + h, 0);
+
+                const scheduleRowsByType = (resourceSchedule?.rows || []).reduce((acc, row) => {
+                    acc[row.type] = acc[row.type] || [];
+                    acc[row.type].push(row);
+                    return acc;
+                }, {});
+                const resourceHours = {};
+
+                Object.entries(scheduleRowsByType).forEach(([type, rows]) => {
+                    const allocation = resourceAllocation.find(item => item.type === type) || {};
+                    const headcount = Math.max(1, Math.floor(Number(allocation.headcount) || rows.length || 1));
+                    const totalFTEWeeks = rows.reduce((sum, row) => sum + row.allocations.reduce((sub, value) => sub + (parseFloat(value) || 0), 0), 0);
+                    const hoursAllocated = totalFTEWeeks * HOURS_PER_WEEK;
+
+                    resourceHours[type] = { headcount, scheduledFTEWeeks: totalFTEWeeks, hoursAllocated };
+                });
+
+                const totalScheduledHours = Object.values(resourceHours).reduce((s, r) => s + r.hoursAllocated, 0);
+                const scalingFactor = totalScheduledHours > 0 ? totalEffortHours / totalScheduledHours : 1;
+
+                const byCostPhase = {};
+                Object.entries(phaseBreakdown).forEach(([phase, hours]) => {
+                    byCostPhase[phase] = {};
+                    Object.keys(resourceHours).forEach(type => {
+                        const rate = (rateData[type] && rateData[type][selectedCurrency]) || 0;
+                        const phaseHoursForResource = totalEffortHours > 0
+                            ? (resourceHours[type].hoursAllocated / totalScheduledHours) * hours * scalingFactor
+                            : 0;
+                        byCostPhase[phase][type] = {
+                            hours: phaseHoursForResource,
+                            rate: parseFloat(rate) || 0,
+                            cost: phaseHoursForResource * (parseFloat(rate) || 0)
+                        };
+                    });
+                });
+
+                const byCostResource = {};
+                Object.entries(resourceHours).forEach(([type, data]) => {
+                    const rate = (rateData[type] && rateData[type][selectedCurrency]) || 0;
+                    byCostResource[type] = {
+                        headcount: data.headcount,
+                        scheduledFTEWeeks: data.scheduledFTEWeeks,
+                        totalHours: data.hoursAllocated,
+                        rate: parseFloat(rate) || 0,
+                        totalCost: data.hoursAllocated * (parseFloat(rate) || 0)
+                    };
+                });
+
+                const summaryByCurrency = {};
+                CURRENCIES.forEach(currency => {
+                    let total = 0;
+                    resourceAllocation.forEach(item => {
+                        const rate = (rateData[item.type] && rateData[item.type][currency]) || 0;
+                        const hours = resourceHours[item.type].hoursAllocated;
+                        total += hours * (parseFloat(rate) || 0);
+                    });
+                    summaryByCurrency[currency] = total;
+                });
+
+                return {
+                    byPhase: byCostPhase,
+                    byResource: byCostResource,
+                    summary: summaryByCurrency,
+                    totalHours: totalEffortHours,
+                    scalingFactor
+                };
+            };
+
+            const costData = calculateResourceCosts();
+
+            if (!resourceAllocation || resourceAllocation.length === 0) {
+                return (
+                    <div className="content-card">
+                        <div className="empty-state" style={{ padding: 40 }}>
+                            <div className="empty-state-icon">💰</div>
+                            <div className="empty-state-text">No Cost Data Available</div>
+                            <div style={{ color: '#7f8c8d', marginTop: 15 }}>Please assign resources in Edit CR to calculate costs.</div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="content-card">
+                    <div style={{ marginBottom: 30 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                            <h2>💰 Cost Allocation Analysis</h2>
+                            <select 
+                                className="form-select"
+                                value={selectedCurrency}
+                                onChange={(e) => setSelectedCurrency(e.target.value)}
+                                style={{ width: 200 }}
+                            >
+                                {CURRENCIES.map(cur => (
+                                    <option key={cur} value={cur}>{cur}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <p style={{ color: '#7f8c8d' }}>
+                            Cost breakdown based on effort hours ({costData.totalHours} hrs total), resource allocation, and hourly rates.
+                            {costData.scalingFactor !== 1 && ` Scaling factor applied: ${costData.scalingFactor.toFixed(2)}`}
+                        </p>
+                    </div>
+
+                    <div className="summary-grid" style={{ marginBottom: 30 }}>
+                        {CURRENCIES.map(cur => (
+                            <div key={cur} className="summary-card primary" style={{ background: cur === selectedCurrency ? 'linear-gradient(135deg, #1e88e5 0%, #1565c0 100%)' : '#ecf0f1' }}>
+                                <div className="summary-label" style={{ color: cur === selectedCurrency ? 'white' : '#546e7a' }}>Total Cost ({cur})</div>
+                                <div className="summary-value" style={{ color: cur === selectedCurrency ? 'white' : '#1e88e5' }}>
+                                    {cur === selectedCurrency ? costData.summary[cur].toFixed(2) : costData.summary[cur].toFixed(2)}
+                                    <span className="summary-unit" style={{ marginLeft: 8 }}>{cur}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <h3 style={{ marginBottom: 20 }}>Cost by Resource Type</h3>
+                    <div style={{ overflowX: 'auto', marginBottom: 30 }}>
+                        <table className="table" style={{ minWidth: 800 }}>
+                            <thead>
+                                <tr>
+                                    <th>Resource Type</th>
+                                    <th>Headcount</th>
+                                    <th>Scheduled FTE Weeks</th>
+                                    <th>Total Hours (40 hrs/week)</th>
+                                    <th>Rate ({selectedCurrency}/hr)</th>
+                                    <th>Total Cost ({selectedCurrency})</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Object.entries(costData.byResource).map(([resourceType, data], idx) => (
+                                    <tr key={resourceType} style={{ background: idx % 2 === 0 ? '#FFFFFF' : '#F5F8FF' }}>
+                                        <td style={{ fontWeight: 600 }}>{resourceType}</td>
+                                        <td style={{ textAlign: 'center' }}>{data.headcount}</td>
+                                        <td style={{ textAlign: 'center' }}>{data.scheduledFTEWeeks.toFixed(2)}</td>
+                                        <td style={{ textAlign: 'center' }}>{data.totalHours.toFixed(0)}</td>
+                                        <td style={{ textAlign: 'right' }}>${data.rate.toFixed(2)}</td>
+                                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#0d47a1' }}>${data.totalCost.toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 style={{ marginBottom: 20 }}>Cost by Effort Phase</h3>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="table" style={{ minWidth: 1000 }}>
+                            <thead>
+                                <tr>
+                                    <th>Phase</th>
+                                    {resourceAllocation.map(item => (
+                                        <th key={item.type} style={{ textAlign: 'center', minWidth: 140 }}>{item.type}</th>
+                                    ))}
+                                    <th style={{ textAlign: 'center' }}>Total Phase Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(() => {
+                                    const PHASE_ORDER = ['requirements','documentation','development','unitTesting','sit','uat','migration','hypercare','contingency'];
+                                    const PHASE_LABELS = {
+                                        requirements: 'Requirement Gathering',
+                                        documentation: 'Documentation',
+                                        development: 'Development',
+                                        unitTesting: 'Unit Testing',
+                                        sit: 'System Integration Testing',
+                                        uat: 'User Acceptance Testing',
+                                        migration: 'Production Migration',
+                                        hypercare: 'Hypercare',
+                                        contingency: 'Contingency'
+                                    };
+
+                                    return PHASE_ORDER.map((phase, idx) => {
+                                        const resourceCosts = (costData.byPhase && costData.byPhase[phase]) || {};
+                                        const phaseTotalCost = Object.values(resourceCosts).reduce((s, rc) => s + (rc.cost || 0), 0);
+                                        const phaseLabel = PHASE_LABELS[phase] || (phase.replace(/([A-Z])/g, ' $1').replace(/^/, c => c.toUpperCase()).trim());
+                                        return (
+                                            <tr key={phase} style={{ background: idx % 2 === 0 ? '#FFFFFF' : '#F5F8FF' }}>
+                                                <td style={{ fontWeight: 600 }}>{phaseLabel}</td>
+                                                {resourceAllocation.map(item => {
+                                                    const rc = resourceCosts[item.type] || { hours: 0, cost: 0 };
+                                                    return (
+                                                        <td key={item.type} style={{ textAlign: 'center', fontSize: 13 }}>
+                                                            <div>${rc.cost.toFixed(2)}</div>
+                                                            <div style={{ fontSize: 11, color: '#7f8c8d' }}>({rc.hours.toFixed(0)} hrs)</div>
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td style={{ textAlign: 'right', fontWeight: 600, color: '#0d47a1' }}>${phaseTotalCost.toFixed(2)}</td>
+                                            </tr>
+                                        );
+                                    });
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             );
         }
@@ -2580,7 +3332,23 @@
             );
         }
 
-        function ProjectSummary({ crs }) {
+        function ProjectSummary({ crs, rateData }) {
+            const currency = 'USD';
+            const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+
+            const getCostForCR = (cr) => {
+                if (!cr.resourceSchedule?.rows || !cr.resourceAllocation) return 0;
+                const ratesByType = (cr.resourceAllocation || []).reduce((acc, item) => {
+                    acc[item.type] = (rateData?.[item.type]?.[currency]) || 0;
+                    return acc;
+                }, {});
+                return cr.resourceSchedule.rows.reduce((sum, row) => {
+                    const rowHours = row.allocations.reduce((sub, value) => sub + (parseFloat(value) || 0), 0) * 40;
+                    const rate = ratesByType[row.type] || 0;
+                    return sum + rowHours * rate;
+                }, 0);
+            };
+
             // Group CRs by project
             const projectGroups = crs.reduce((groups, cr) => {
                 const projectName = cr.projectName || 'Unassigned';
@@ -2667,8 +3435,12 @@
                                                 <div className="summary-value">{efforts.unitTesting + efforts.sit + efforts.uat} <span className="summary-unit">hrs</span></div>
                                             </div>
                                             <div className="summary-card warning">
-                                                <div className="summary-label">Requirements</div>
+                                                <div className="summary-label">Requirement Gathering</div>
                                                 <div className="summary-value">{efforts.requirements} <span className="summary-unit">hrs</span></div>
+                                            </div>
+                                            <div className="summary-card info">
+                                                <div className="summary-label">Total Cost</div>
+                                                <div className="summary-value">{formatCurrency(projectCrs.reduce((sum, cr) => sum + getCostForCR(cr), 0))}</div>
                                             </div>
                                             <div className="summary-card danger">
                                                 <div className="summary-label">Objects</div>
@@ -2816,6 +3588,81 @@
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            );
+        }
+
+        function Rates({ resourceTypes, rateData, onUpdateRate, onAddResourceType }) {
+            const [newType, setNewType] = useState('');
+
+            return (
+                <div className="content-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <div>
+                            <h2>💲 Resource Rates</h2>
+                            <p style={{ color: '#7f8c8d', marginTop: 8 }}>
+                                Manage the base hourly rates for each resource type. These values are used in the Edit CR resource section.
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input
+                                type="text"
+                                className="form-input"
+                                style={{ width: 220 }}
+                                value={newType}
+                                placeholder="Add new resource type"
+                                onChange={(e) => setNewType(e.target.value)}
+                            />
+                            <button
+                                className="btn btn-primary"
+                                type="button"
+                                onClick={() => {
+                                    const trimmed = newType.trim();
+                                    if (!trimmed) return;
+                                    onAddResourceType(trimmed);
+                                    setNewType('');
+                                }}
+                            >
+                                ➕ Add Type
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="table" style={{ minWidth: 840 }}>
+                            <thead>
+                                <tr>
+                                    <th>Resource Type</th>
+                                    {CURRENCIES.map(currency => (
+                                        <th key={currency}>{currency} / hr</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {resourceTypes.map(type => (
+                                    <tr key={type}>
+                                        <td style={{ fontWeight: 600, minWidth: 200 }}>{type}</td>
+                                        {CURRENCIES.map(currency => (
+                                            <td key={currency} style={{ minWidth: 140 }}>
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={(rateData[type] && rateData[type][currency]) || ''}
+                                                    onChange={(e) => onUpdateRate(type, currency, e.target.value)}
+                                                    min="0"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                />
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style={{ marginTop: 20, color: '#7f8c8d' }}>
+                        Tip: Use this tab to set the base hourly rates in USD, GBP, AUD, and EUR for each resource type. These values will be available in Edit CR.
                     </div>
                 </div>
             );
